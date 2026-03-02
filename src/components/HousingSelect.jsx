@@ -1,7 +1,11 @@
-import { HOUSING, getQuarterlyRent, formatDollars } from '../gameEngine';
+import { HOUSING, getQuarterlyRent, getQuarterlySalary, ANNUAL_SALARY_BY_STAGE, formatDollars } from '../gameEngine';
 
 export default function HousingSelect({ gameState: gs, onHousingChosen }) {
   const currentWealth = gs.stats.wealth;
+  const { net: salaryNet } = getQuarterlySalary(gs.currentStageId);
+  const salaryAnnual = ANNUAL_SALARY_BY_STAGE[gs.currentStageId] || 75_000;
+  const { competence, charisma, reputation, sanity } = gs.stats;
+
   const tiers = gs.isRichLegacy
     ? ['studio', 'oneBed', 'mansion', 'penthouse']
     : ['studio', 'oneBed', 'mansion'];
@@ -11,9 +15,38 @@ export default function HousingSelect({ gameState: gs, onHousingChosen }) {
       <div className="hs-card">
         <div className="hs-tag">ANNUAL LEASE RENEWAL</div>
         <h2 className="hs-title">Your lease is up. Where are you living next year?</h2>
-        <p className="hs-subtitle">
-          Current balance: <span className="hs-balance">{formatDollars(currentWealth)}</span>
-        </p>
+
+        <div className="hs-info-bar">
+          <div className="hs-info-item">
+            <span className="hs-info-label">Current balance</span>
+            <span className="hs-balance">{formatDollars(currentWealth)}</span>
+          </div>
+          <div className="hs-info-divider" />
+          <div className="hs-info-item">
+            <span className="hs-info-label">Base salary</span>
+            <span className="hs-balance">{formatDollars(salaryAnnual)}/yr</span>
+            <span className="hs-info-sub">{formatDollars(salaryNet)} net / qtr</span>
+          </div>
+        </div>
+
+        <div className="hs-stats-bar">
+          <div className="hs-stat-chip">
+            <span className="hs-stat-label">Competence</span>
+            <span className="hs-stat-val">{competence}</span>
+          </div>
+          <div className="hs-stat-chip">
+            <span className="hs-stat-label">Charisma</span>
+            <span className="hs-stat-val">{charisma}</span>
+          </div>
+          <div className="hs-stat-chip">
+            <span className="hs-stat-label">Reputation</span>
+            <span className="hs-stat-val">{reputation}</span>
+          </div>
+          <div className="hs-stat-chip">
+            <span className="hs-stat-label">Sanity</span>
+            <span className="hs-stat-val">{sanity}</span>
+          </div>
+        </div>
 
         <div className="hs-options">
           {tiers.map(tier => {

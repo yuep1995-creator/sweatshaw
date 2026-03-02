@@ -23,11 +23,14 @@ const TICKER_ITEMS = [
 export default function IntroScreen({ onBegin, onLoad, hasSave }) {
   const [phase, setPhase] = useState(0); // 0=logo, 1=text, 2=button
   const [tickerOffset, setTickerOffset] = useState(0);
+  const [bgVisible, setBgVisible] = useState(false);
+  const [contentVisible, setContentVisible] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 600);
-    const t2 = setTimeout(() => setPhase(2), 3000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    setBgVisible(true);
+    const contentTimer = setTimeout(() => setContentVisible(true), 1000);
+    const t1 = setTimeout(() => setPhase(1), 1600);
+    return () => { clearTimeout(contentTimer); clearTimeout(t1); };
   }, []);
 
   // Ticker scroll
@@ -38,8 +41,14 @@ export default function IntroScreen({ onBegin, onLoad, hasSave }) {
 
   return (
     <div className="intro-screen">
-      {/* Scrolling background grid */}
-      <div className="intro-bg-grid" />
+      {/* Background image — Layer 1 */}
+      <div
+        className="intro-bg-photo"
+        style={{
+          opacity: bgVisible ? 1 : 0,
+          transition: 'opacity 1000ms ease-in',
+        }}
+      />
 
       {/* Ambient corner stats */}
       <div className="intro-ambient intro-ambient-tl">
@@ -61,42 +70,52 @@ export default function IntroScreen({ onBegin, onLoad, hasSave }) {
         <span>REVIEWED: NEVER</span>
       </div>
 
-      {/* Main content */}
-      <div className="intro-content">
-        {/* Logo */}
-        <div className={`intro-logo-block ${phase >= 0 ? 'intro-phase-in' : ''}`}>
-          <img src="/gslogo.png" alt="Goldman Stanley" className="intro-logo-img" />
-          <div className="intro-logo-sub">Where Ambition Meets Accountability™</div>
-        </div>
-
-        {/* Text */}
-        <div className={`intro-text-block ${phase >= 1 ? 'intro-phase-in' : ''}`}>
-          {INTRO_LINES.map((line, i) => (
-            <p
-              key={i}
-              className="intro-line"
-              style={{ animationDelay: `${i * 0.45}s` }}
-            >
-              {line}
-            </p>
-          ))}
-        </div>
-
-        {/* Buttons */}
-        <div className={`intro-button-wrap ${phase >= 2 ? 'intro-phase-in' : ''}`}>
-          <div className="intro-btn-row">
-            <button className="btn btn-primary btn-large intro-cta" onClick={onBegin}>
-              [ NEW GAME ]
-            </button>
-            {hasSave && (
-              <button className="btn btn-secondary btn-large intro-cta intro-load-btn" onClick={onLoad}>
-                [ LOAD GAME ]
-              </button>
-            )}
+      {/* Translucent overlay box — Layer 2 + content Layer 3 */}
+      <div
+        className="intro-overlay-box"
+        style={{
+          opacity: contentVisible ? 1 : 0,
+          transform: contentVisible ? 'translateY(0)' : 'translateY(16px)',
+          transition: 'opacity 1000ms ease-in-out, transform 1000ms ease-in-out',
+        }}
+      >
+        {/* Main content */}
+        <div className="intro-content">
+          {/* Logo */}
+          <div className={`intro-logo-block ${phase >= 0 ? 'intro-phase-in' : ''}`}>
+            <img src="/sclogo.png" alt="Sweatshaw & Co" className="intro-logo-img" />
+            <div className="intro-logo-sub">Where Ambition Meets Accountability™</div>
           </div>
-          <p className="intro-fine-print">
-            By clicking NEW GAME you agree to sacrifice your work-life balance. Terms non-negotiable.
-          </p>
+
+          {/* Text */}
+          <div className={`intro-text-block ${phase >= 1 ? 'intro-phase-in' : ''}`}>
+            {INTRO_LINES.map((line, i) => (
+              <p
+                key={i}
+                className="intro-line"
+                style={{ animationDelay: `${i * 0.45}s` }}
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <div className={`intro-button-wrap ${phase >= 1 ? 'intro-phase-in' : ''}`}>
+            <div className="intro-btn-row">
+              <button className="btn btn-primary btn-large intro-cta" onClick={onBegin}>
+                [ NEW GAME ]
+              </button>
+              {hasSave && (
+                <button className="btn btn-secondary btn-large intro-cta intro-load-btn" onClick={onLoad}>
+                  [ LOAD GAME ]
+                </button>
+              )}
+            </div>
+            <p className="intro-fine-print">
+              By clicking NEW GAME you agree to sacrifice your work-life balance. Terms non-negotiable.
+            </p>
+          </div>
         </div>
       </div>
 

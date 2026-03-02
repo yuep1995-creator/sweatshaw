@@ -6,8 +6,8 @@ export const CHARACTERS = [
     id: 'paige',
     name: 'Paige Turner',
     pronoun: 'She/Her',
-    quote: '"I didn\'t come this far to only come this far."',
-    subtext: '(She has no idea what that means. She saw it on a motivational poster.)',
+    quote: '"I don\'t have work-life balance. I have work-work balance."',
+    subtext: '(She regularly has her laptop with her during weekend outings. She showed up to her best friend\'s birthday dinner forty minutes late, opened her laptop at the table to "just check one thing," and left before dessert.)',
     emoji: '👩‍💼',
     colour: '#7c6bef',
   },
@@ -116,7 +116,7 @@ export const calculateStartingStats = (traits) => {
     competence:  intelligence,                              // 10–100 starting
     charisma:    looks,                                     // 10–100 starting
     reputation:  10 + Math.floor(familyBackground * 0.3),  // 13–40 starting
-    sanity:      Math.min(100, 50 + Math.floor(grit * 0.3)), // 53–80 starting
+    sanity:      Math.min(200, 50 + Math.floor(grit * 0.3)), // 53–80 starting
     sanityFloor: Math.floor(grit / 2),                     // 5–50 breakdown threshold
     wealth:      startingWealth,
     traitMultipliers,
@@ -128,16 +128,30 @@ export const calculateStartingStats = (traits) => {
 // ─────────────────────────────────────────────
 // PSYCHOLOGICAL PROFILE
 // ─────────────────────────────────────────────
-export const getProfile = (traits, characterName) => {
-  const dominant = Object.entries(traits).sort((a, b) => b[1] - a[1])[0][0];
-  const profiles = {
-    intelligence: `"A technically strong candidate with moderate interpersonal presence and a notable absence of industry connections. Management anticipates a steady if unspectacular trajectory. We have been wrong before."`,
-    grit: `"Demonstrates exceptional resilience and work ethic. Will almost certainly still be here at midnight. We are monitoring this."`,
-    looks: `"Strong first impression. Excellent client-facing potential. Technical assessments pending."`,
-    streetSmart: `"Perceptive. Adaptable. Possibly too aware of office dynamics for their own good."`,
-    familyBackground: `"Comes highly recommended. References were... enthusiastic. We look forward to seeing independent contributions."`,
-  };
-  return profiles[dominant];
+export const getProfile = (traits) => {
+  const { intelligence, looks, streetSmart, grit, familyBackground } = traits;
+  const vals = Object.values(traits);
+  const allBalanced = vals.every(v => v >= 31 && v <= 60);
+
+  if (familyBackground === 100)
+    return `"Candidate's father plays golf with our CEO every third Sunday.\nInterview scores were recorded as a matter of procedure.\nThe desk has already been assigned."`;
+
+  if (intelligence > 60)
+    return `"Analytically exceptional. Finished the technical case study\nthirty minutes early and then corrected a typo in our question.\nFrankly, a little embarrassing for everyone involved."`;
+
+  if (looks > 60)
+    return `"Impeccably presented. Three interviewers described the candidate\nas 'very polished' without being asked.\nClient-facing placement. Immediately."`;
+
+  if (streetSmart > 60)
+    return `"Knew which interviewer had the real decision-making power\nwithin five minutes of sitting down.\nWe are still discussing whether this is impressive or concerning."`;
+
+  if (grit > 60)
+    return `"Demonstrates exceptional resilience and work ethic.\nWill almost certainly still be here at midnight.\nWe are monitoring this."`;
+
+  if (allBalanced)
+    return `"Solid across the board. Nothing that alarmed us,\nnothing that particularly thrilled us either.\nThe backbone of every great firm. We mean that sincerely."`;
+
+  return `"Completed the interview process without incident.\nA decision was reached. Here we are.\nWe look forward to seeing what emerges."`;
 };
 
 // ─────────────────────────────────────────────
@@ -149,44 +163,34 @@ export const CAREER_STAGES = [
     title: 'Analyst',
     gameYears: [1, 2, 3],
     calendarYears: [2026, 2027, 2028],
-    weights: { competence: 0.50, charisma: 0.25, reputation: 0.25 },
-    standardThreshold: 100,
-    acceleratedThreshold: 130,
+    promoReqs: { competence: 250, charisma: 120, reputation: 120 },
+    allowAccelerated: true,
   },
   {
     id: 'associate',
     title: 'Associate',
     gameYears: [4, 5, 6],
     calendarYears: [2029, 2030, 2031],
-    weights: { competence: 0.45, charisma: 0.25, reputation: 0.30 },
-    standardThreshold: 160,
-    acceleratedThreshold: 195,
+    promoReqs: { competence: 500, charisma: 300, reputation: 300 },
+    allowAccelerated: true,
   },
   {
     id: 'vp',
     title: 'VP',
     gameYears: [7, 8, 9],
     calendarYears: [2032, 2033, 2034],
-    weights: { competence: 0.35, charisma: 0.30, reputation: 0.35 },
-    standardThreshold: 235,
-    acceleratedThreshold: 275,
+    promoReqs: { competence: 700, charisma: 600, reputation: 600 },
+    allowAccelerated: false,
   },
   {
     id: 'director',
     title: 'Director',
     gameYears: [10, 11, 12],
     calendarYears: [2035, 2036, 2037],
-    weights: { competence: 0.25, charisma: 0.40, reputation: 0.35 },
-    standardThreshold: 318,
-    acceleratedThreshold: 365,
+    promoReqs: { competence: 800, charisma: 850, reputation: 850 },
+    allowAccelerated: false,
   },
 ];
-
-export const PARTNER_WEIGHTS = { competence: 0.20, charisma: 0.45, reputation: 0.35 };
-export const PARTNER_STANDARD_THRESHOLD = 318;
-export const PARTNER_ACCELERATED_THRESHOLD = 365;
-export const LEGACY_HIRE_STANDARD_REDUCTION = 8;
-export const LEGACY_HIRE_ACCELERATED_REDUCTION = 6;
 
 // ─────────────────────────────────────────────
 // ACTIVITIES
@@ -486,23 +490,35 @@ export const BADGES = {
 // GAME ENDINGS
 // ─────────────────────────────────────────────
 export const ENDINGS = {
-  fired: {
-    title: 'Effective Immediately.',
-    colour: '#ef4444',
-    text: (name) => `The meeting was scheduled with no agenda. That was the first sign.\n\n${name} sat across from HR and someone from Legal. The letter was already printed.\n\nThree years of work. One envelope.`,
-    epilogue: 'The reference was professional and cold. Like the handshake.',
+  backToFamilyBusiness: {
+    title: 'Back to the Family Business.',
+    colour: '#d4a017',
+    text: (name) => `The call came on a Thursday. Or perhaps a Wednesday. ${name} had stopped tracking days with any particular precision around month eight.\n\nIt was the estate lawyer. The portfolio needed attention. The properties required decisions. The businesses — plural, always plural — had been waiting patiently for the person whose name was on the succession documents.\n\n${name} sat with the phone for a long time after hanging up. Then booked a flight.\n\nBanking had been an interesting detour. Genuinely interesting. The models, the deals, the architecture of money moving at speed — there was something honest about learning how it all worked from the inside, rather than simply inheriting the outcome. But the promotion cycle, the performance scores calibrated to two decimal places, the annual review where someone who earned a fraction of the family's quarterly dividend explained ${name}'s "development areas" — none of that had ever really been the point.\n\nThe point was always going to be the same thing it had always been. The name above the door. The seat at the table that had been waiting, upholstered and empty, since before ${name} could read.\n\nThey did not consider this a failure. The game had been interesting. They had simply decided to stop playing it.`,
+    epilogue: 'The handover was seamless. It always is, when the infrastructure was already there.',
   },
-  mentalHealthCollapse: {
-    title: 'Out of Office.',
+  burntOut: {
+    title: 'Burnt Out.',
     colour: '#f59e0b',
-    text: (name) => `${name} stared at the ceiling for three hours.\n\nThen booked a flight. The out-of-office said "personal leave." The truth was simpler: it was time to go.`,
-    epilogue: 'The therapist said it wasn\'t a breakdown. Just a breakthrough wearing a scary costume.',
+    text: (name) => `${name} didn't mean to quit. Not really. There was no grand moment of clarity, no dramatic resignation speech.\n\nOne morning, the alarm went off. ${name} stared at the ceiling. Then set the alarm again. Then again.\n\nOn the third day, they emailed HR. The subject line said "personal leave." The body said almost nothing. The truth was simpler: there was nothing left.\n\nThe questions came later, in the silence that followed. What had it all been for? Was this what ambition was supposed to feel like when it ran out? The answers weren't forthcoming. But for the first time in years, there was time to sit with them.`,
+    epilogue: 'The therapist helped. Slowly. So did sleep, and weekends that felt like actual weekends.',
   },
-  obsolescence: {
-    title: 'Head of Strategic Initiatives.',
+  upOrOut: {
+    title: 'Up or Out.',
+    colour: '#ef4444',
+    text: (name) => `The email arrived on a Friday afternoon. Two lines. Respectful, HR-reviewed, completely devastating.\n\n${name} had been the top student. Had been. That was the word that kept surfacing: "had been." Sweatshaw & Co didn't traffic in past tense.\n\nThe surprise was the most humiliating part. All the late nights, the decks rebuilt at midnight, the weekends quietly surrendered — and still, somehow, this.\n\nThe grief was real. Then it passed. And somewhere on the other side of it, ${name} started to notice the world outside the building. The one that had been there all along.`,
+    epilogue: 'Turned out there was quite a lot of it. The wider world. More than expected.',
+  },
+  permanentVP: {
+    title: 'The Permanent VP.',
     colour: '#8b90b0',
-    text: (name) => `They didn't fire ${name}. They couldn't.\n\nInstead, there was a new title, a different floor, a project with a vague brief and no headcount. "Strategic Initiatives." The words said prestige. The reality said parking lot.`,
-    epilogue: 'The corner office had a beautiful view. No one came to visit.',
+    text: (name) => `There is a particular kind of stuck that only exists inside a large institution.\n\n${name} became a VP and stayed one. Not through failure — the scores were fine, the reviews were adequate, the work was solid. But "solid" and "Director" are two different conversations, and the partners had made their calculation.\n\nThe salary was good. The title was respectable. The ceiling was visible from the desk.\n\nYears later, ${name} could still describe exactly how it felt to realise this was it. That the game had not ended — it had simply become a different game, one without a winning condition.`,
+    epilogue: 'The junior analysts called them "the institution." They meant it as a compliment. Probably.',
+  },
+  headOfInternalStrategy: {
+    title: 'Head of Internal Strategy.',
+    colour: '#8b90b0',
+    text: (name) => `They didn't tell ${name} directly. That was never how it was done.\n\nThe signs were there — a smaller room, a meeting removed from the agenda, a project with a vague mandate and no reporting line. "Head of Internal Strategy." The title sounded important. No one came to ask for strategy.\n\n${name} had been close. Closer than most ever got. But in the final year, something had shifted — the room had changed its mind, or ${name} had, or both. The partnership had gone to someone else. The rest was just administration.`,
+    epilogue: '"Director." The business card still said that. It was still true. It was also, somehow, the last true thing.',
   },
   gracefulExit: {
     title: 'The Clean Break.',
@@ -519,14 +535,14 @@ export const ENDINGS = {
   founder: {
     title: 'You Didn\'t Leave. You Launched.',
     colour: '#4f6ef7',
-    text: (name) => `The side project had been running for two years before ${name} admitted it was actually a company.\n\nThe day they registered it was a Thursday. Nobody noticed them leave Goldman Stanley three months later.`,
+    text: (name) => `The side project had been running for two years before ${name} admitted it was actually a company.\n\nThe day they registered it was a Thursday. Nobody noticed them leave Sweatshaw & Co three months later.`,
     epilogue: 'Seed round closed. The pitch deck had one slide that just said "we\'ve been doing this anyway."',
   },
   linkedInInfluencer: {
     title: 'The Thought Leader.',
     colour: '#a78bfa',
     text: (name) => `${name} didn't mean for it to go this far.\n\nThe post about "lessons from the trading floor" got 40,000 impressions. The one about "why I quit" got 400,000. The speaking fee now covers rent.`,
-    epilogue: '"Career speaker & consultant. Goldman Stanley alum." The pinned post has 2.1k likes.',
+    epilogue: '"Career speaker & consultant. Sweatshaw & Co alum." The pinned post has 2.1k likes.',
   },
   regulator: {
     title: 'The Rule Changer.',
@@ -537,7 +553,7 @@ export const ENDINGS = {
   madePartner: {
     title: 'Corner Office.',
     colour: '#d4a017',
-    text: (name) => `After twelve years, Goldman Stanley offered ${name} a partnership.\n\nThe ceremony was understated. The cake was good. The office faced east, which meant you saw the sunrise most mornings, whether you wanted to or not.`,
+    text: (name) => `After twelve years, Sweatshaw & Co offered ${name} a partnership.\n\nThe ceremony was understated. The cake was good. The office faced east, which meant you saw the sunrise most mornings, whether you wanted to or not.`,
     epilogue: (sanity) =>
       sanity > 70 ? 'The work was hard. The life was full. Not perfect. Full. There\'s a difference.'
       : sanity > 40 ? 'The work was good. The rest of life had become something negotiated around it. You\'re working on that.'
@@ -548,30 +564,6 @@ export const ENDINGS = {
     colour: '#555e80',
     text: (name) => `${name} made Partner. The celebration dinner had three people. Two were from HR.\n\nThe canapés were very good.`,
     epilogue: '"Effective. Strategic. Results-driven." The review always said the same things. They meant them. That was the strangest part.',
-  },
-  americanPsycho: {
-    title: 'THE MACHINE BREAKS',
-    colour: '#e2e8f0',
-    isAmericanPsycho: true,
-    text: (name, stats) => {
-      const p1 = `There was no single moment. That is what nobody tells you, and what ${name} could not have explained even if someone had thought to ask. There was no morning they woke up and decided to stop being okay. It was more like a dimmer switch than a light going out — so gradual that by the time the room was dark, they had forgotten what the light looked like.`;
-      const p2 = `The hours had always been long. That was the agreement, unwritten and non-negotiable, signed somewhere between the first all-nighter and the first time they missed something that mattered to skip something that didn't. Goldman Stanley did not ask for their weekends. It simply made the alternative feel unthinkable. ${name} had been very good at not thinking about it.`;
-
-      let p3 = '';
-      if ((stats?.competence || 0) > 300) {
-        p3 = `The cruelest part was the competence. They were exceptional at the work — genuinely, measurably exceptional. The models were cleaner, the decks sharper, the analysis more precise than almost anyone on the floor. None of this had protected them. If anything, it had accelerated everything. The better you are, the more they give you. The more they give you, the less of yourself remains.`;
-      } else if ((stats?.charisma || 0) > 300) {
-        p3 = `People liked ${name}. That was the part that made it harder to explain. They were warm in meetings, generous with junior staff, quick with a joke at exactly the right moment. The performance was flawless until it wasn't, and when it stopped, the people who liked them most were the ones who hadn't seen it coming.`;
-      } else if ((stats?.wealth || 0) > 500_000) {
-        p3 = `The money was real. That much was undeniable. The apartment was real. The account balance was real. ${name} lay on the floor of the real apartment and looked at the ceiling and understood, with perfect clinical clarity, that none of it was a reason to get up.`;
-      }
-
-      const p4 = `They left the industry quietly. Not dramatically — there was no outburst, no resignation letter, no moment of cinematic clarity. They simply stopped going in. Stopped answering. Stopped performing the version of themselves that Goldman Stanley had required. What was left underneath took a long time to find. Some of it was still there. That turned out to be enough to start with.`;
-      const p5 = `Goldman Stanley released a statement confirming that employee wellbeing was their highest priority. The statement was four paragraphs long. It had been approved by legal.`;
-
-      return [p1, p2, p3, p4, p5].filter(Boolean).join('\n\n');
-    },
-    epilogue: '',
   },
   earlyRetirement: {
     title: 'THE EXIT',
@@ -610,7 +602,7 @@ export const ENDINGS = {
 
       let p2 = '';
       if ((stats?.competence ?? 0) > 60) {
-        p2 = `The frustrating thing — the part that kept ${name} up at night — was that they were good at the job. Genuinely good. The work was never the problem. The numbers just hadn't kept up with the city, with the rent, with the version of life that Goldman Stanley quietly required you to maintain.`;
+        p2 = `The frustrating thing — the part that kept ${name} up at night — was that they were good at the job. Genuinely good. The work was never the problem. The numbers just hadn't kept up with the city, with the rent, with the version of life that Sweatshaw & Co quietly required you to maintain.`;
       } else if ((stats?.sanity ?? 100) < 30) {
         p2 = `Looking back, the money was the last thing to go. Everything else had already been quietly leaving for months — the sleep, the appetite for it, the ability to care about the things they were supposed to care about. The bank balance was just the last domino.`;
       }
@@ -630,7 +622,7 @@ export const ENDINGS = {
         p3 = `The industry was smaller than it looked from the inside. ${name} learned this the slow way. They pivoted eventually — something adjacent, something quieter. It was fine. Fine was enough for a while.`;
       }
 
-      const p4 = `Goldman Stanley filled the position within six weeks. The new hire sat at the same desk. They did not know whose it had been. That is how it works.`;
+      const p4 = `Sweatshaw & Co filled the position within six weeks. The new hire sat at the same desk. They did not know whose it had been. That is how it works.`;
 
       return [p1, p2, p2b, p3, p4].filter(Boolean).join('\n\n');
     },

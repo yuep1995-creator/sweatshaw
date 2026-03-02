@@ -1,5 +1,5 @@
 import { getManagerNote, BADGES } from '../gameData';
-import { getStageInfo, calculatePromotionScore, formatDollars } from '../gameEngine';
+import { getStageInfo, formatDollars } from '../gameEngine';
 
 const STAT_LABELS = { competence: 'Competence', charisma: 'Charisma', reputation: 'Reputation', sanity: 'Sanity', wealth: 'Wealth' };
 
@@ -22,7 +22,7 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
         {/* Header */}
         <div className="ar-header">
           <div className="ar-logo">
-            <img src="/gslogo.png" alt="Goldman Stanley" className="ar-logo-img" />
+            <img src="/gslogo.png" alt="Sweatshaw & Co" className="ar-logo-img" />
             <span>{gs.companyName}</span>
           </div>
           <div className="ar-stamp">ANNUAL REVIEW</div>
@@ -84,25 +84,46 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
         {promotionResult && (
           <div className={`ar-promotion ${promotionResult.type}`}>
             {promotionResult.type === 'accelerated' && (
-              <>
-                <div className="ar-promo-title">🏆 ACCELERATED PROMOTION</div>
-                <p>Score: {promotionResult.score} (threshold: {promotionResult.threshold})</p>
-                <p>You're moving up ahead of schedule. Goldman Stanley is delighted. Your social life is less so.</p>
-              </>
+              <div className="ar-promo-title">🏆 ACCELERATED PROMOTION</div>
             )}
             {promotionResult.type === 'standard' && (
-              <>
-                <div className="ar-promo-title">⬆️ PROMOTION</div>
-                <p>Score: {promotionResult.score} (threshold: {promotionResult.threshold})</p>
-                <p>Three years, one step up. The title changes. The 6am emails do not.</p>
-              </>
+              <div className="ar-promo-title">⬆️ PROMOTION</div>
             )}
             {promotionResult.type === 'fail' && (
-              <>
-                <div className="ar-promo-title ar-fail">⚠️ PERFORMANCE REVIEW OUTCOME</div>
-                <p>Score: {promotionResult.score} (required: {promotionResult.threshold})</p>
-                <p>Goldman Stanley has identified a "strategic restructuring opportunity" for your role.</p>
-              </>
+              <div className="ar-promo-title ar-fail">⚠️ PERFORMANCE REVIEW OUTCOME</div>
+            )}
+
+            {/* Per-stat requirement breakdown */}
+            <div className="ar-promo-reqs">
+              {[
+                { key: 'competence', label: 'Competence', icon: '🧠' },
+                { key: 'charisma',   label: 'Charisma',   icon: '✨' },
+                { key: 'reputation', label: 'Reputation', icon: '🌟' },
+              ].map(({ key, label, icon }) => {
+                const actual = endStats[key];
+                const req    = promotionResult.reqs[key];
+                const met    = actual > req;
+                return (
+                  <div key={key} className={`ar-promo-req-row ${met ? 'met' : 'unmet'}`}>
+                    <span className="ar-promo-req-icon">{icon}</span>
+                    <span className="ar-promo-req-label">{label}</span>
+                    <span className="ar-promo-req-actual">{actual}</span>
+                    <span className="ar-promo-req-sep">/</span>
+                    <span className="ar-promo-req-needed">{req}</span>
+                    <span className="ar-promo-req-check">{met ? '✓' : '✗'}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {promotionResult.type === 'accelerated' && (
+              <p className="ar-promo-flavour">You're moving up ahead of schedule. Sweatshaw & Co is delighted. Your social life is less so.</p>
+            )}
+            {promotionResult.type === 'standard' && (
+              <p className="ar-promo-flavour">Three years, one step up. The title changes. The 6am emails do not.</p>
+            )}
+            {promotionResult.type === 'fail' && (
+              <p className="ar-promo-flavour">Sweatshaw &amp; Co has identified a "strategic restructuring opportunity" for your role.</p>
             )}
           </div>
         )}
@@ -122,7 +143,7 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
                 </button>
                 <button className="ar-wakeup-btn highlight" onClick={() => handleWakeUpCall('pe')}>
                   <span className="ar-choice-letter">B</span>
-                  Jump to Private Equity → Harrington Capital
+                  Jump to Private Equity → Darkrock Partners
                   <span className="ar-wakeup-note">Stat multiplier 1.1× for remainder of game</span>
                 </button>
                 <button

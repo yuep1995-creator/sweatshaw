@@ -1,5 +1,5 @@
 import { ACTIVITIES } from '../gameData';
-import { getQuarterLabel, getSeasonLabel, getQuarterlyRent, formatDollars } from '../gameEngine';
+import { getQuarterLabel, getSeasonLabel, getQuarterlyRent, getQuarterlySalary, formatDollars } from '../gameEngine';
 
 const CATEGORY_ORDER = ['Work', 'Social', 'Recovery', 'Wild Card'];
 
@@ -8,6 +8,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen }) {
   const alreadyChosen = gs.monthActivities;
   const wealth        = gs.stats.wealth;
   const nextRent      = getQuarterlyRent(gs.housingTier, gs.mansionOwned);
+  const nextSalary    = getQuarterlySalary(gs.currentStageId).net;
 
   const grouped = CATEGORY_ORDER.map(cat => ({
     cat,
@@ -21,8 +22,13 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen }) {
       </span>
     ));
 
+  const bgImage = gs.companyName === 'Darkrock Partners'
+    ? "url('/peoffice.png')"
+    : "url('/bcoffice.png')";
+
   return (
-    <div className="mp-screen">
+    <div className="mp-screen" style={{ backgroundImage: bgImage }}>
+    <div className="mp-bg">
       <div className="mp-header">
         <h2 className="mp-title">
           {getQuarterLabel(gs.currentQuarter)} {2025 + gs.currentYear}
@@ -38,7 +44,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen }) {
         </div>
       </div>
 
-      {nextRent > 0 && wealth < nextRent && (
+      {nextRent > 0 && (wealth + nextSalary) < nextRent && (
         <div className="mp-bankruptcy-warning">
           ⚠ CRITICAL: Balance ({formatDollars(wealth)}) cannot cover next quarter's rent ({formatDollars(nextRent)})
         </div>
@@ -97,6 +103,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen }) {
           </div>
         ))}
       </div>
+    </div>
     </div>
   );
 }

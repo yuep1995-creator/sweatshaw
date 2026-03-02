@@ -109,7 +109,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart }) {
         )}
 
         <div className="ending-fine-print">
-          This document is confidential. Goldman Stanley accepts no liability for emotional damage sustained during employment.
+          This document is confidential. Sweatshaw & Co accepts no liability for emotional damage sustained during employment.
         </div>
 
         <button className="btn btn-primary btn-large ending-restart" onClick={onRestart}>

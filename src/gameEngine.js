@@ -1,10 +1,5 @@
 import {
   CAREER_STAGES,
-  PARTNER_WEIGHTS,
-  PARTNER_STANDARD_THRESHOLD,
-  PARTNER_ACCELERATED_THRESHOLD,
-  LEGACY_HIRE_STANDARD_REDUCTION,
-  LEGACY_HIRE_ACCELERATED_REDUCTION,
   QUARTERLY_EVENTS,
   BADGES,
 } from './gameData';
@@ -32,23 +27,24 @@ export const getTitleDisplay = (stageId) => {
 // ─────────────────────────────────────────────
 // STAT OPERATIONS
 // ─────────────────────────────────────────────
-const COMP_CAP   = 500;   // Competence / Charisma / Reputation cap
+const COMP_CAP   = 999;   // Competence / Charisma / Reputation cap
+const SANITY_CAP = 200;   // Sanity cap
 const WEALTH_MAX = 99_999_999;
 
-// clampStats: caps comp/char/rep at 500, sanity at [0,100], wealth at max
+// clampStats: caps comp/char/rep at 999, sanity at [0,200], wealth at max
 // No sanityFloor clamping here — that check is done separately (breakdown event)
 export const clampStats = (stats) => {
   const out = { ...stats };
   ['competence', 'charisma', 'reputation'].forEach(k => {
     out[k] = Math.min(COMP_CAP, Math.max(0, out[k] || 0));
   });
-  out.sanity = Math.min(100, Math.max(0, out.sanity || 0));
+  out.sanity = Math.min(SANITY_CAP, Math.max(0, out.sanity || 0));
   out.wealth = Math.min(WEALTH_MAX, Math.max(0, out.wealth || 0));
   return out;
 };
 
 // applyEffects: applies all 4 trait multipliers and returns RAW (unclamped) stats.
-// Caller must check sanity < 0 for americanPsycho before calling clampStats.
+// Caller must check sanity < 0 for burntOut before calling clampStats.
 export const applyEffects = (stats, rawEffects, multipliers = {}, isSocialActivity = false) => {
   const effects = { ...rawEffects };
   const {
@@ -128,34 +124,24 @@ export const pickQuarterlyEvent = (year, quarter, currentStageId) => {
 // ─────────────────────────────────────────────
 // PROMOTION LOGIC
 // ─────────────────────────────────────────────
-export const calculatePromotionScore = (stats, weights) =>
-  (stats.competence * weights.competence) +
-  (stats.charisma   * weights.charisma)   +
-  (stats.reputation * weights.reputation);
+// Returns true if all three stat thresholds are exceeded.
+const meetsPromoReqs = (stats, reqs) =>
+  stats.competence > reqs.competence &&
+  stats.charisma   > reqs.charisma   &&
+  stats.reputation > reqs.reputation;
 
-export const checkPromotion = (stats, year, isLegacyHire) => {
+// checkPromotion covers all four stages (Analyst → Associate → VP → Director → Partner).
+// Result shape: { type: 'accelerated'|'standard'|'fail', reqs, stage }
+export const checkPromotion = (stats, year) => {
   const { stage, stageYear } = getStageInfo(year);
   if (!stage) return null;
 
-  const score = calculatePromotionScore(stats, stage.weights);
-  let std = stage.standardThreshold;
-  let acc = stage.acceleratedThreshold;
-  if (isLegacyHire) { std -= LEGACY_HIRE_STANDARD_REDUCTION; acc -= LEGACY_HIRE_ACCELERATED_REDUCTION; }
+  const { promoReqs, allowAccelerated } = stage;
+  const met = meetsPromoReqs(stats, promoReqs);
 
-  if (stageYear === 2 && score >= acc) return { type: 'accelerated', score: Math.round(score), threshold: acc, stage };
-  if (stageYear === 3 && score >= std) return { type: 'standard',    score: Math.round(score), threshold: std, stage };
-  if (stageYear === 3 && score < std)  return { type: 'fail',        score: Math.round(score), threshold: std, stage };
-  return null;
-};
-
-export const checkPartnerPromotion = (stats, isLegacyHire, stageYear) => {
-  const score = calculatePromotionScore(stats, PARTNER_WEIGHTS);
-  let std = PARTNER_STANDARD_THRESHOLD;
-  let acc = PARTNER_ACCELERATED_THRESHOLD;
-  if (isLegacyHire) { std -= LEGACY_HIRE_STANDARD_REDUCTION; acc -= LEGACY_HIRE_ACCELERATED_REDUCTION; }
-  if (stageYear === 2 && score >= acc) return { type: 'accelerated', score: Math.round(score), threshold: acc };
-  if (stageYear === 3 && score >= std) return { type: 'standard',    score: Math.round(score), threshold: std };
-  if (stageYear === 3)                 return { type: 'fail',        score: Math.round(score), threshold: std };
+  if (stageYear === 2 && allowAccelerated && met) return { type: 'accelerated', reqs: promoReqs, stage };
+  if (stageYear === 3 && met)                     return { type: 'standard',    reqs: promoReqs, stage };
+  if (stageYear === 3 && !met)                    return { type: 'fail',        reqs: promoReqs, stage };
   return null;
 };
 
@@ -242,12 +228,12 @@ export const HOUSING = {
   },
   oneBed: {
     id: 'oneBed', label: 'One-Bedroom Flat',
-    monthlyRent: 6_000, quarterlyRent: 18_000, sanityMod: 0.15,
+    monthlyRent: 6_000, quarterlyRent: 18_000, sanityMod: 0.20,
     flavour: 'You have a door for the bedroom. This matters more than you expected.',
   },
   mansion: {
-    id: 'mansion', label: 'Mansion',
-    monthlyRent: 20_000, quarterlyRent: 60_000, sanityMod: 0.35,
+    id: 'mansion', label: 'Penthouse',
+    monthlyRent: 20_000, quarterlyRent: 60_000, sanityMod: 0.40,
     flavour: "The bathtub alone has done more for your mental health than three years of therapy.",
   },
   penthouse: {
@@ -279,10 +265,8 @@ export const checkEndings = (gs) => {
     consecutiveWeekendQuarters, sanityFloor,
   } = gs;
 
-  // Sanity breakdown (hits or drops below grit-based floor)
-  if (stats.sanity <= (sanityFloor || 5)) return 'mentalHealthCollapse';
-  // Fired for terminal underperformance
-  if (stats.competence < 40 && stats.reputation < 25) return 'fired';
+  // Family background maxed — legacy heir retreats to the family empire
+  if (gs.isRichLegacy && stats.sanity < 30) return 'backToFamilyBusiness';
   // Golden handcuffs
   if (stats.wealth >= 500_000 && stats.sanity < 20 && currentStageId === 'director') return 'goldenHandcuffs';
   // Early retirement: very wealthy but mentally depleted

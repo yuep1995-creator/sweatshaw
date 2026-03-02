@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { calculateStartingStats, getProfile } from '../gameData';
 
-const STAT_CAP = 188; // cap for all non-wealth stats
+const STAT_CAP = 999; // display cap for comp/char/rep; sanity uses 200
 
 const DISPLAYED_STATS = [
   { key: 'competence', label: 'Competence',  icon: '🧠', colour: '#4f6ef7' },
@@ -14,7 +14,7 @@ const DISPLAYED_STATS = [
 export default function OnboardingCard({ character, traits, onBeginCareer }) {
   const [visible, setVisible] = useState(false);
   const stats = calculateStartingStats(traits);
-  const profile = getProfile(traits, character.name);
+  const profile = getProfile(traits);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 100);
@@ -39,8 +39,8 @@ export default function OnboardingCard({ character, traits, onBeginCareer }) {
         {/* Header */}
         <div className="onboarding-header">
           <div className="onboarding-logo">
-            <img src="/gslogo.png" alt="Goldman Stanley" className="onboarding-logo-img" />
-            <span className="onboarding-logo-text">GOLDMAN STANLEY</span>
+            <img src="/gslogo.png" alt="Sweatshaw & Co" className="onboarding-logo-img" />
+            <span className="onboarding-logo-text">SWEATSHAW & CO</span>
           </div>
           <div className="onboarding-stamp">NEW HIRE</div>
         </div>
@@ -107,8 +107,8 @@ export default function OnboardingCard({ character, traits, onBeginCareer }) {
 
         {/* Profile */}
         <div className="onboarding-profile">
-          <p className="profile-text">{profile}</p>
-          <p className="profile-signed">— HR Department, Goldman Stanley</p>
+          <p className="profile-text" style={{ whiteSpace: 'pre-line' }}>{profile}</p>
+          <p className="profile-signed">— HR Department, Sweatshaw & Co</p>
           <p className="profile-note">
             This assessment was generated in 4.2 seconds. It has not been reviewed by a human.
           </p>

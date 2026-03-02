@@ -138,9 +138,9 @@ export default function TraitAllocation({ character, onConfirm }) {
               <span className="preview-key">Charisma</span>
               <span className="preview-val">{traits.looks} / 500</span>
               <span className="preview-key">Reputation</span>
-              <span className="preview-val">{10 + Math.floor(traits.familyBackground * 0.3)} / 500</span>
+              <span className="preview-val">{10 + Math.floor(traits.familyBackground * 0.3)} / 999</span>
               <span className="preview-key">Starting Sanity</span>
-              <span className="preview-val">{Math.min(100, 50 + Math.floor(traits.grit * 0.3))} / 100</span>
+              <span className="preview-val">{Math.min(200, 50 + Math.floor(traits.grit * 0.3))} / 200</span>
               <span className="preview-key">Sanity Floor</span>
               <span className="preview-val">{Math.floor(traits.grit / 2)}</span>
               <span className="preview-key">Starting Wealth</span>

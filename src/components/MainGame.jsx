@@ -9,7 +9,7 @@ import HousingSelect    from './HousingSelect';
 import {
   getStageInfo, getQuarterLabel, getSeasonLabel,
   processActivity, clampStats, applyEffects, checkEndings,
-  checkPromotion, checkPartnerPromotion, getNextStage,
+  checkPromotion, getNextStage,
   computeYearBadges, pickQuarterlyEvent,
   shouldFireWakeUpCall, shouldFireLegacyHireEvent,
   mergeDeltas,
@@ -30,11 +30,11 @@ const STAT_LABELS = {
   reputation: 'Reputation', sanity: 'Sanity',
 };
 
-// Colour for comp/char/rep bars (0–500 scale)
+// Colour for comp/char/rep bars (0–999 scale)
 function getHighStatColour(value) {
-  if (value <= 100) return '#ef4444'; // red
-  if (value <= 200) return '#f59e0b'; // amber
-  if (value <= 350) return '#e2e8f0'; // neutral white
+  if (value <= 200) return '#ef4444'; // red
+  if (value <= 400) return '#f59e0b'; // amber
+  if (value <= 700) return '#e2e8f0'; // neutral white
   return '#d4a017';                   // gold
 }
 
@@ -47,15 +47,15 @@ function getPortrait(characterId, sanity) {
 
 function StatBar({ statKey, value }) {
   if (statKey === 'sanity') {
-    const pct    = Math.min(value, 100);
-    const colour = value < 25 ? '#ef4444' : value < 50 ? '#f59e0b' : '#22c55e';
-    const pulse  = value < 25;
+    const pct    = Math.min((value / 200) * 100, 100);
+    const colour = value < 50 ? '#ef4444' : value < 100 ? '#f59e0b' : '#22c55e';
+    const pulse  = value < 50;
     return (
       <div className="gs-stat">
         <div className="gs-stat-header">
           <span className="gs-stat-icon">{STAT_ICONS.sanity}</span>
           <span className="gs-stat-label">Sanity</span>
-          <span className="gs-stat-value" style={{ color: colour }}>{value} / 100</span>
+          <span className="gs-stat-value" style={{ color: colour }}>{value} / 200</span>
         </div>
         <div className="gs-stat-bar-outer">
           <div
@@ -67,15 +67,15 @@ function StatBar({ statKey, value }) {
     );
   }
 
-  // Competence / Charisma / Reputation — scale to 500
-  const pct    = Math.min((value / 500) * 100, 100);
+  // Competence / Charisma / Reputation — scale to 999
+  const pct    = Math.min((value / 999) * 100, 100);
   const colour = getHighStatColour(value);
   return (
     <div className="gs-stat">
       <div className="gs-stat-header">
         <span className="gs-stat-icon">{STAT_ICONS[statKey]}</span>
         <span className="gs-stat-label">{STAT_LABELS[statKey]}</span>
-        <span className="gs-stat-value" style={{ color: colour }}>{value} / 500</span>
+        <span className="gs-stat-value" style={{ color: colour }}>{value} / 999</span>
       </div>
       <div className="gs-stat-bar-outer">
         <div
@@ -162,11 +162,11 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     const { rawStats, effects: actEffects, riskMessage } =
       processActivity(activityDef, { ...statsBefore, wealth: newWealth }, m);
 
-    // --- American Psycho check: sanity went below 0
+    // --- Burnt out check: sanity went below 0
     if (rawStats.sanity < 0) {
       const displayStats = clampStats({ ...rawStats, sanity: 0 });
       update({ stats: displayStats });
-      onEnding('americanPsycho');
+      onEnding('burntOut');
       return;
     }
 
@@ -178,7 +178,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       const boostedGain = applyHousingSanityMod(actEffects.sanity, gs.housingTier);
       const extra = boostedGain - actEffects.sanity;
       if (extra > 0) {
-        finalStats.sanity = Math.min(100, finalStats.sanity + extra);
+        finalStats.sanity = Math.min(200, finalStats.sanity + extra);
         actEffects.sanity = boostedGain;
       }
     }
@@ -446,12 +446,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       dateHistory: gs.dateHistory,
     });
 
-    let promotionResult = null;
-    if (gs.currentStageId === 'director') {
-      promotionResult = checkPartnerPromotion(gs.stats, gs.isLegacyHire, getStageInfo(gs.currentYear).stageYear);
-    } else {
-      promotionResult = checkPromotion(gs.stats, gs.currentYear, gs.isLegacyHire);
-    }
+    const promotionResult = checkPromotion(gs.stats, gs.currentYear);
 
     const wakeUpCall = shouldFireWakeUpCall(gs.currentYear, 4);
 
@@ -483,7 +478,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
     if (gs.annualData.wakeUpCall && choice?.wakeUpCallOption === 'pe') {
       update({
-        companyName: 'Harrington Capital',
+        companyName: 'Darkrock Partners',
         currentYear: gs.currentYear + 1,
         currentQuarter: 1,
         currentMonth: 1,
@@ -498,7 +493,18 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     }
 
     if (promotionResult) {
-      if (promotionResult.type === 'fail') { onEnding('obsolescence'); return; }
+      if (promotionResult.type === 'fail') {
+        if (gs.isRichLegacy) {
+          onEnding('backToFamilyBusiness');
+        } else if (gs.currentStageId === 'analyst' || gs.currentStageId === 'associate') {
+          onEnding('upOrOut');
+        } else if (gs.currentStageId === 'vp') {
+          onEnding('permanentVP');
+        } else {
+          onEnding('headOfInternalStrategy');
+        }
+        return;
+      }
       if (promotionResult.type === 'accelerated' || promotionResult.type === 'standard') {
         if (gs.isLegacyHire) legacyPromotionCount++;
         if (gs.annualData.wakeUpCall && gs.currentStageId === 'director') {
@@ -619,7 +625,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       {/* ── HEADER ──────────────────────────────────────────────────── */}
       <header className="gs-header">
         <div className="gs-header-left">
-          <img src="/gslogo.png" alt="Goldman Stanley" className="gs-header-logo" />
+          <img src="/gslogo.png" alt="Sweatshaw & Co" className="gs-header-logo" />
           <span className="gs-header-company">{gs.companyName}</span>
         </div>
         <div className="gs-header-center">

@@ -17,7 +17,7 @@ function SalaryStatement({ summary, quarter, year, name, stageId }) {
 
   return (
     <div className="ss-wrap">
-      <div className="ss-header">GOLDMAN STANLEY — QUARTERLY COMPENSATION STATEMENT</div>
+      <div className="ss-header">SWEATSHAW & CO — QUARTERLY COMPENSATION STATEMENT</div>
       <div className="ss-subheader">
         {getQuarterLabel(quarter)} {2025 + year} &nbsp;|&nbsp; {name} &nbsp;|&nbsp; {titleByStage[stageId] || stageId}
       </div>

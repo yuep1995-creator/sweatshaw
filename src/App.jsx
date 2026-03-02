@@ -3,6 +3,7 @@ import IntroScreen    from './components/IntroScreen';
 import CharacterSelect from './components/CharacterSelect';
 import TraitAllocation from './components/TraitAllocation';
 import OnboardingCard  from './components/OnboardingCard';
+import BossIntro       from './components/BossIntro';
 import MainGame        from './components/MainGame';
 import GameEnding      from './components/GameEnding';
 import { calculateStartingStats } from './gameData';
@@ -14,6 +15,7 @@ export const SCREENS = {
   CHARACTER:  'characterSelect',
   TRAITS:     'traitAllocation',
   ONBOARDING: 'onboarding',
+  BOSS_INTRO: 'bossIntro',
   GAME:       'game',
   ENDING:     'ending',
 };
@@ -29,7 +31,7 @@ const buildInitialGameState = (character, traits) => {
 
   // Deduct Q1 rent from starting wealth
   const q1Rent         = getQuarterlyRent(housingTier, mansionOwned);
-  const wealthAfterRent = Math.max(0, s.wealth - q1Rent);
+  const wealthAfterRent = Math.max(10_000, s.wealth - q1Rent);
 
   return {
     // Identity
@@ -37,9 +39,9 @@ const buildInitialGameState = (character, traits) => {
     characterName:  character.name,
     characterPronoun: character.pronoun,
     baseTraits:     traits,
-    companyName:    'Goldman Stanley',
+    companyName:    'Sweatshaw & Co',
 
-    // Stats (wealth in dollars; comp/char/rep scale to 500, sanity to 100)
+    // Stats (wealth in dollars; comp/char/rep scale to 999, sanity to 200)
     stats: {
       competence:  s.competence,
       charisma:    s.charisma,
@@ -183,6 +185,10 @@ export default function App() {
     const gs = buildInitialGameState(character, traits);
     gs.yearStartStats = { ...gs.stats };
     setGameState(gs);
+    goTo(SCREENS.BOSS_INTRO);
+  };
+
+  const handleBossIntroDone = () => {
     goTo(SCREENS.GAME);
   };
 
@@ -217,6 +223,9 @@ export default function App() {
       )}
       {screen === SCREENS.ONBOARDING && character && traits && (
         <OnboardingCard character={character} traits={traits} onBeginCareer={handleBeginCareer} />
+      )}
+      {screen === SCREENS.BOSS_INTRO && (
+        <BossIntro onBeginGame={handleBossIntroDone} />
       )}
       {screen === SCREENS.GAME && gameState && (
         <MainGame
