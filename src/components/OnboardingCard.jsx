@@ -60,12 +60,12 @@ export default function OnboardingCard({ character, traits, onBeginCareer }) {
           </div>
           <div className="onboarding-field">
             <span className="field-label">TITLE</span>
-            <span className="field-value">Junior Associate (Probationary)</span>
+            <span className="field-value">Analyst</span>
           </div>
           <div className="onboarding-field">
             <span className="field-label">STARTING SALARY</span>
             <span className="field-value">
-              $38,000{' '}
+              $100,000{' '}
               <span className="field-note">(non-negotiable, we already decided)</span>
             </span>
           </div>
@@ -87,14 +87,16 @@ export default function OnboardingCard({ character, traits, onBeginCareer }) {
                   <span className="stat-label">{label}</span>
                   <span className="stat-num" style={{ color: colour }}>{formatVal(key, val)}</span>
                 </div>
-                <div className="stat-bar-outer">
-                  <div
-                    className="stat-bar-inner"
-                    style={{ width: `${pct}%`, background: colour }}
-                  />
-                </div>
                 {key !== 'wealth' && (
-                  <div className="stat-cap-label">cap: {STAT_CAP}</div>
+                  <>
+                    <div className="stat-bar-outer">
+                      <div
+                        className="stat-bar-inner"
+                        style={{ width: `${pct}%`, background: colour }}
+                      />
+                    </div>
+                    <div className="stat-cap-label">cap: {STAT_CAP}</div>
+                  </>
                 )}
               </div>
             );
@@ -121,7 +123,7 @@ export default function OnboardingCard({ character, traits, onBeginCareer }) {
             accuracy. You also acknowledge that the coffee machine on Floor 3 is broken and
             &quot;being looked into.&quot;
           </p>
-          <button className="btn btn-primary btn-large" onClick={onBeginCareer}>
+          <button className="btn btn-primary btn-large" onClick={onBeginCareer} data-sound="decline">
             [ BEGIN CAREER ]
           </button>
         </div>

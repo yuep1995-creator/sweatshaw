@@ -5,7 +5,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart }) {
   const ending = ENDINGS[endingId] || ENDINGS.obsolescence;
 
   const epilogue = typeof ending.epilogue === 'function'
-    ? ending.epilogue(gs.stats.sanity)
+    ? ending.epilogue(gs.characterName, gs.stats.sanity, gs)
     : ending.epilogue;
 
   const text = ending.text(gs.characterName, gs.stats, gs);
@@ -32,7 +32,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart }) {
   // Bankruptcy gets a stripped-down, logo-free card
   if (ending.isBankruptcy) {
     return (
-      <div className="ending-screen ending-bankruptcy-screen">
+      <div className="ending-screen ending-bankruptcy-screen" style={{ backgroundImage: "url('/bankruptcy.png')" }}>
         <div className="ending-bankruptcy-card">
           <h1 className="ending-bankruptcy-title">{ending.title}</h1>
           <div className="ending-bankruptcy-body">
@@ -48,13 +48,31 @@ export default function GameEnding({ endingId, gameState: gs, onRestart }) {
     );
   }
 
+  const CHAR_BG_ENDINGS = {
+    fire:                    { paige: 'firepaige',            max: 'firemax'            },
+    regulator:               { paige: 'regulatorpaige',       max: 'regulatormax'       },
+    burntOut:                { paige: 'burntoutpaige',        max: 'burntoutmax'        },
+    upOrOut:                 { paige: 'uporoutpaige',         max: 'uporoutmax'         },
+    permanentVP:             { paige: 'vppaige',              max: 'vpmax'              },
+    headOfInternalStrategy:  { paige: 'internalstratpaige',  max: 'internalstratmax'   },
+  };
+  const charBgKey = CHAR_BG_ENDINGS[endingId];
+  const charBg = charBgKey
+    ? `url('/${gs.characterId === 'paige' ? charBgKey.paige : charBgKey.max}.png')`
+    : undefined;
+
+  const hasBgClass = ['backToFamilyBusiness', 'fire', 'regulator', 'burntOut', 'upOrOut', 'permanentVP', 'headOfInternalStrategy'].includes(endingId);
+
   return (
-    <div className="ending-screen">
+    <div
+      className={`ending-screen${endingId === 'backToFamilyBusiness' ? ' ending-screen--family-business' : ''}${hasBgClass && !['backToFamilyBusiness'].includes(endingId) ? ' ending-screen--char-bg' : ''}`}
+      style={charBg ? { backgroundImage: charBg } : undefined}
+    >
       <div className="ending-card" style={{ '--ending-colour': ending.colour }}>
         {/* Header */}
         <div className="ending-header">
-          <img src="/gslogo.png" alt="" className="ending-logo" />
-          <span className="ending-company">{gs.companyName}</span>
+          <img src={gs.isPEPath ? '/dplogo.png' : '/sclogo.png'} alt="" className="ending-logo" />
+          <span className="ending-company">{gs.isPEPath ? 'Darkstone Partners' : gs.companyName}</span>
         </div>
 
         <div className="ending-stamp">CASE CLOSED</div>
@@ -96,8 +114,8 @@ export default function GameEnding({ endingId, gameState: gs, onRestart }) {
             <div className="ending-stats-label">TITLES EARNED</div>
             <div className="ending-badges-list">
               {gs.allBadgesEarned.map(id => {
-                const icons  = { officeFurniture:'🪑', starAssociate:'⭐', spreadsheetWhisperer:'🧠', theGhost:'👻', runningOnFumes:'🫠', linkedInInfluencer:'🤡', actuallyOkay:'🧘', taken:'💌', overachiever:'🏆' };
-                const labels = { officeFurniture:'Office Furniture', starAssociate:'Star Associate', spreadsheetWhisperer:'Spreadsheet Whisperer', theGhost:'The Ghost', runningOnFumes:'Running on Fumes', linkedInInfluencer:'LinkedIn Influencer', actuallyOkay:'Actually Okay', taken:'Taken', overachiever:'Overachiever' };
+                const icons  = { officeFurniture:'🪑', starAssociate:'⭐', spreadsheetWhisperer:'🧠', theGhost:'👻', runningOnFumes:'🫠', actuallyOkay:'🧘', taken:'💌', overachiever:'🏆' };
+                const labels = { officeFurniture:'Office Furniture', starAssociate:'Star Associate', spreadsheetWhisperer:'Spreadsheet Whisperer', theGhost:'The Ghost', runningOnFumes:'Running on Fumes', actuallyOkay:'Actually Okay', taken:'Taken', overachiever:'Overachiever' };
                 return (
                   <span key={id} className="ending-badge">
                     {icons[id] || '🏅'} {labels[id] || id}

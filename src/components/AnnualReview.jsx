@@ -1,12 +1,12 @@
 import { getManagerNote, BADGES } from '../gameData';
-import { getStageInfo, formatDollars } from '../gameEngine';
+import { getStageInfo, formatDollars, ANNUAL_SALARY_BY_STAGE, getTaxRate } from '../gameEngine';
 
 const STAT_LABELS = { competence: 'Competence', charisma: 'Charisma', reputation: 'Reputation', sanity: 'Sanity', wealth: 'Wealth' };
 
 export default function AnnualReview({ gameState: gs, annualData, onContinue }) {
-  const { year, yearStartStats, endStats, badgesThisYear, promotionResult, wakeUpCall } = annualData;
+  const { year, yearStartStats, endStats, badgesThisYear, promotionResult, wakeUpCall, bonusInfo, salaryMultiplier } = annualData;
   const { stage, calendarYear } = getStageInfo(year);
-  const managerNote = getManagerNote(endStats, gs.characterName);
+  const managerNote = getManagerNote(endStats, yearStartStats, gs.characterName);
 
   const statKeys = Object.keys(STAT_LABELS);
 
@@ -16,13 +16,23 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
 
   const handleWakeUpCall = (option) => onContinue({ wakeUpCallOption: option });
 
+  // Annual comp figures
+  const stageId    = gs.currentStageId;
+  const annual     = ANNUAL_SALARY_BY_STAGE[stageId] || 100_000;
+  const taxRate    = getTaxRate(stageId);
+  const taxPct     = Math.round(taxRate * 100);
+  const salTax     = Math.round(annual * taxRate);
+  const salNet     = annual - salTax;
+  const salNetDisp = Math.round(salNet * (salaryMultiplier || 1));
+  const mult       = salaryMultiplier && salaryMultiplier > 1;
+
   return (
     <div className="ar-screen">
       <div className="ar-card">
         {/* Header */}
         <div className="ar-header">
           <div className="ar-logo">
-            <img src="/gslogo.png" alt="Sweatshaw & Co" className="ar-logo-img" />
+            <img src={gs.isPEPath ? '/dplogo.png' : '/sclogo.png'} alt={gs.companyName} className="ar-logo-img ar-logo-img--large" />
             <span>{gs.companyName}</span>
           </div>
           <div className="ar-stamp">ANNUAL REVIEW</div>
@@ -57,6 +67,46 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
         <div className="ar-manager-note">
           <p className="ar-note-text">"{managerNote}"</p>
           <p className="ar-note-signed">— Manager, {gs.companyName}</p>
+        </div>
+
+        {/* Annual comp statement */}
+        <div className="ar-section-label">ANNUAL COMPENSATION SUMMARY</div>
+        <div className="ar-comp-table">
+          <div className="ar-comp-row">
+            <span>Base Salary (Gross)</span>
+            <span>{formatDollars(annual)}</span>
+          </div>
+          <div className="ar-comp-row ar-comp-neg">
+            <span>Income Tax ({taxPct}%)</span>
+            <span>−{formatDollars(salTax)}</span>
+          </div>
+          <div className="ar-comp-row ar-comp-pos">
+            <span>Net Base Salary{mult ? ' (×1.2 PE)' : ''}</span>
+            <span>+{formatDollars(salNetDisp)}</span>
+          </div>
+
+          {bonusInfo && (
+            <>
+              <div className="ar-comp-spacer" />
+              <div className="ar-comp-row ar-comp-highlight">
+                <span>Annual Bonus ({Math.round(bonusInfo.bonusPct * 100)}% of base)</span>
+                <span>{formatDollars(bonusInfo.gross)}</span>
+              </div>
+              <div className="ar-comp-row ar-comp-neg">
+                <span>Tax on Bonus ({taxPct}%)</span>
+                <span>−{formatDollars(bonusInfo.taxWithheld)}</span>
+              </div>
+              <div className="ar-comp-row ar-comp-pos">
+                <span>Net Bonus{mult ? ' (×1.2 PE)' : ''}</span>
+                <span>+{formatDollars(bonusInfo.net)}</span>
+              </div>
+              <div className="ar-comp-spacer" />
+              <div className="ar-comp-row ar-comp-total">
+                <span>Total Net Compensation</span>
+                <span>{formatDollars(salNetDisp + bonusInfo.net)}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Badges */}
@@ -143,21 +193,17 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
                 </button>
                 <button className="ar-wakeup-btn highlight" onClick={() => handleWakeUpCall('pe')}>
                   <span className="ar-choice-letter">B</span>
-                  Jump to Private Equity → Darkrock Partners
-                  <span className="ar-wakeup-note">Stat multiplier 1.1× for remainder of game</span>
+                  Jump to Private Equity → Darkstone & Partners
+                  <span className="ar-wakeup-note">Salary ×1.2, promotion requirements ×1.2</span>
                 </button>
-                <button
-                  className={`ar-wakeup-btn ${!(gs.baseTraits.streetSmart >= 30 || gs.stats.competence >= 70) ? 'locked' : ''}`}
-                  onClick={() => onContinue({ wakeUpCallOption: 'startup' })}
-                  disabled={!(gs.baseTraits.streetSmart >= 30 || gs.stats.competence >= 70)}
-                >
+                <button className="ar-wakeup-btn" onClick={() => onContinue({ wakeUpCallOption: 'startup' })}>
                   <span className="ar-choice-letter">C</span>
-                  Join a startup. (Requires Street Smart 30+ OR Competence 70+)
+                  Join a startup.
                 </button>
-                <button className="ar-wakeup-btn" onClick={() => onContinue({ wakeUpCallOption: 'ignore' })}>
+                <button className="ar-wakeup-btn" onClick={() => handleWakeUpCall('sabotage')}>
                   <span className="ar-choice-letter">D</span>
-                  Close the LinkedIn tab. Get back to work.
-                  <span className="ar-wakeup-note">Sanity -5, Reputation +2</span>
+                  Send headhunter to a rival colleague.
+                  <span className="ar-wakeup-note">Competence +40, Sanity −30</span>
                 </button>
               </div>
             </div>

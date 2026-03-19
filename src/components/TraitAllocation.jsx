@@ -136,17 +136,17 @@ export default function TraitAllocation({ character, onConfirm }) {
               <span className="preview-key">Competence</span>
               <span className="preview-val">{traits.intelligence} / 500</span>
               <span className="preview-key">Charisma</span>
-              <span className="preview-val">{traits.looks} / 500</span>
+              <span className="preview-val">{traits.looks * 3 + Math.floor(traits.streetSmart / 2)} / 500</span>
               <span className="preview-key">Reputation</span>
-              <span className="preview-val">{10 + Math.floor(traits.familyBackground * 0.3)} / 999</span>
+              <span className="preview-val">{Math.round(10 + traits.familyBackground * 0.5)} / 999</span>
               <span className="preview-key">Starting Sanity</span>
-              <span className="preview-val">{Math.min(200, 50 + Math.floor(traits.grit * 0.3))} / 200</span>
+              <span className="preview-val">{Math.round(50 + traits.grit * 0.5)} / 200</span>
               <span className="preview-key">Sanity Floor</span>
-              <span className="preview-val">{Math.floor(traits.grit / 2)}</span>
+              <span className="preview-val">{traits.familyBackground === 100 ? 30 : 0}</span>
               <span className="preview-key">Starting Wealth</span>
               <span className="preview-val">{traits.familyBackground === 100 ? '$1,000,000' : `$${(traits.familyBackground * 1_000).toLocaleString()}`}</span>
             </div>
-            <div className="preview-cap-note">Competence · Charisma · Reputation cap at 500. Sanity caps at 100.</div>
+            <div className="preview-cap-note">Competence · Charisma · Reputation cap at 500. Sanity caps at 200.</div>
           </div>
 
           <button

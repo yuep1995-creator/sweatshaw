@@ -1,10 +1,10 @@
 const getRemoteBg = (characterId) =>
   characterId === 'paige' ? '/paigestudio.png' : '/maxstudio.png';
 
-export default function QuarterlyEvent({ event, stats, characterId, onChoice }) {
+export default function QuarterlyEvent({ event, stats, characterId, isPEPath, onChoice }) {
   const bgImg = event.location === 'remote'
     ? getRemoteBg(characterId)
-    : '/gsoffice.png';
+    : isPEPath ? '/peoffice.png' : '/gsoffice.png';
 
   const canMeet = (req) => {
     if (!req) return true;

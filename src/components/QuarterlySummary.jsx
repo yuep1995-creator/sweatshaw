@@ -3,7 +3,7 @@ import { getQuarterLabel, formatDollars } from '../gameEngine';
 function SalaryStatement({ summary, quarter, year, name, stageId }) {
   if (!summary) return null;
   const {
-    quarterStartWealth, rentPaid, activityExpenses,
+    quarterStartWealth, rentPaid, lifestyleCost, activityExpenses,
     gross, taxRate, taxWithheld, net,
     bonusInfo, totalDeposited, closingBalance,
     mustRepayMumRepaid,
@@ -12,8 +12,7 @@ function SalaryStatement({ summary, quarter, year, name, stageId }) {
   const titleByStage = {
     analyst: 'Analyst', associate: 'Associate', vp: 'VP', director: 'Director',
   };
-  const taxPct   = Math.round(taxRate * 100);
-  const totalExp = (rentPaid || 0) + (activityExpenses || 0);
+  const taxPct = Math.round(taxRate * 100);
 
   return (
     <div className="ss-wrap">
@@ -81,10 +80,22 @@ function SalaryStatement({ summary, quarter, year, name, stageId }) {
           <span>Total Deposited This Quarter</span>
           <span>+{formatDollars(totalDeposited)}</span>
         </div>
-        {totalExp > 0 && (
+        {(rentPaid > 0) && (
           <div className="ss-row neg">
-            <span>Quarterly Rent + Expenses</span>
-            <span>-{formatDollars(totalExp)}</span>
+            <span>Quarterly Rent</span>
+            <span>-{formatDollars(rentPaid)}</span>
+          </div>
+        )}
+        {(activityExpenses > 0) && (
+          <div className="ss-row neg">
+            <span>Activity Expenses</span>
+            <span>-{formatDollars(activityExpenses)}</span>
+          </div>
+        )}
+        {(lifestyleCost > 0) && (
+          <div className="ss-row neg">
+            <span>Lifestyle</span>
+            <span>-{formatDollars(lifestyleCost)}</span>
           </div>
         )}
         <div className="ss-row closing">

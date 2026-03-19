@@ -1,5 +1,5 @@
-import { ACTIVITIES } from '../gameData';
-import { getQuarterLabel, getSeasonLabel, getQuarterlyRent, getQuarterlySalary, formatDollars } from '../gameEngine';
+import { ACTIVITIES, DATE_OPTIONS } from '../gameData';
+import { getQuarterLabel, getSeasonLabel, getQuarterlyRent, getQuarterlySalary, formatDollars, getAdjustedEffects, getStagePromotionMultiplier } from '../gameEngine';
 
 const CATEGORY_ORDER = ['Work', 'Social', 'Recovery', 'Wild Card'];
 
@@ -12,7 +12,11 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen }) {
 
   const grouped = CATEGORY_ORDER.map(cat => ({
     cat,
-    activities: ACTIVITIES.filter(a => a.category === cat),
+    activities: ACTIVITIES.filter(a => {
+      if (a.category !== cat) return false;
+      if (a.id === 'goOnDate' && !gs.dateUnlocked && !gs.firstEncounterDone) return false;
+      return true;
+    }),
   }));
 
   const formatEffect = (effects) =>
@@ -21,6 +25,9 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen }) {
         {k} {v > 0 ? '+' : ''}{v}
       </span>
     ));
+
+  const formatRiskEffect = (effect) =>
+    Object.entries(effect).map(([k, v]) => `${k} ${v > 0 ? '+' : ''}${v}`).join(', ');
 
   const bgImage = gs.companyName === 'Darkrock Partners'
     ? "url('/peoffice.png')"
@@ -66,34 +73,73 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen }) {
             <div className="mp-cat-label">{cat}</div>
             <div className="mp-activity-grid">
               {activities.map(act => {
-                const unaffordable = (act.cost || 0) > wealth;
+                const yearLocked    = act.minYear != null && gs.currentYear < act.minYear;
+                const encounterLocked = act.id === 'goOnDate' && !yearLocked && !gs.firstEncounterId;
+                const dateMissed   = act.id === 'goOnDate' && gs.firstEncounterDone && !gs.dateUnlocked;
+                const unaffordable  = !yearLocked && !encounterLocked && !dateMissed && (act.cost || 0) > wealth;
+                const unavailable   = yearLocked || encounterLocked || dateMissed || unaffordable;
+                const multipliers   = gs.traitMultipliers || {};
+                const baseEffects   = act.promotionScaled
+                  ? Object.fromEntries(Object.entries(act.effects).map(([k, v]) => [k, Math.round(v * getStagePromotionMultiplier(gs.currentStageId))]))
+                  : act.effects;
+                const adjEffects    = getAdjustedEffects(baseEffects, multipliers, gs.housingTier, gs.currentYear);
+                const adjRiskEffect = act.risk ? getAdjustedEffects(act.risk.effect, multipliers, gs.housingTier, gs.currentYear) : null;
                 return (
                   <button
                     key={act.id}
-                    className={`mp-card ${unaffordable ? 'unaffordable' : ''}`}
-                    onClick={() => !unaffordable && onActivityChosen(act)}
-                    disabled={unaffordable}
+                    className={`mp-card ${unaffordable ? 'unaffordable' : ''} ${yearLocked || encounterLocked ? 'year-locked' : ''} ${dateMissed ? 'date-missed' : ''}`}
+                    onClick={() => !unavailable && onActivityChosen(act)}
+                    disabled={unavailable}
                   >
                     <span className="mp-card-icon">{act.icon}</span>
                     <div className="mp-card-body">
                       <div className="mp-card-name">{act.name}</div>
-                      <div className="mp-card-desc">
-                        {unaffordable
-                          ? "You can't afford this right now."
-                          : act.description
-                        }
-                      </div>
-                      {act.cost > 0 && (
-                        <div className={`mp-card-cost ${unaffordable ? 'unaffordable' : ''}`}>
-                          -{formatDollars(act.cost)}
-                        </div>
-                      )}
-                      <div className="mp-card-effects">{formatEffect(act.effects)}</div>
-                      {act.risk && !unaffordable && (
-                        <div className="mp-card-risk">⚠ {Math.round(act.risk.chance * 100)}% risk</div>
-                      )}
-                      {act.requiresDateFromYear && gs.currentYear >= act.requiresDateFromYear && !unaffordable && (
-                        <div className="mp-card-date-note">💝 Choose your date</div>
+                      <div className="mp-card-desc">{act.description}</div>
+                      {yearLocked ? (
+                        <div className="mp-card-year-lock">Available from Year 2</div>
+                      ) : encounterLocked ? (
+                        <div className="mp-card-year-lock">Unlocked after your first encounter</div>
+                      ) : dateMissed ? (
+                        <div className="mp-card-year-lock">You never made the time. The window closed.</div>
+                      ) : (
+                        <>
+                          {(() => {
+                            const dateDef = act.id === 'goOnDate' && gs.firstEncounterId
+                              ? DATE_OPTIONS.find(d => d.id === gs.firstEncounterId)
+                              : null;
+                            const displayCost = dateDef ? dateDef.dateCost : act.cost;
+                            return (
+                              <div className={`mp-card-cost ${unaffordable ? 'unaffordable' : displayCost > 0 ? '' : 'free'}`}>
+                                {displayCost > 0 ? `Cost: -${formatDollars(displayCost)}` : 'Cost: Free'}
+                              </div>
+                            );
+                          })()}
+                          {act.id === 'goOnDate' && gs.firstEncounterId ? (() => {
+                            const dateDef = DATE_OPTIONS.find(d => d.id === gs.firstEncounterId);
+                            return dateDef ? (
+                              <div className="mp-card-effects">{formatEffect(dateDef.effects)}</div>
+                            ) : null;
+                          })() : act.coinFlip ? (
+                            <div className="mp-card-effects">
+                              <span className="mp-effect pos">50% reputation +{act.coinFlip.good.reputation}</span>
+                              <span className="mp-effect neg">50% reputation {act.coinFlip.bad.reputation}</span>
+                              {adjEffects.sanity != null && <span className={`mp-effect ${adjEffects.sanity < 0 ? 'neg' : 'pos'}`}>sanity {adjEffects.sanity > 0 ? '+' : ''}{adjEffects.sanity}</span>}
+                            </div>
+                          ) : (
+                            <div className="mp-card-effects">{formatEffect(adjEffects)}</div>
+                          )}
+                          {act.risk && (
+                            <div className="mp-card-risk">
+                              ⚠ {Math.round(act.risk.chance * 100)}% chance: {formatRiskEffect(adjRiskEffect)}
+                            </div>
+                          )}
+                          {act.requiresDateFromYear && gs.currentYear >= act.requiresDateFromYear && !unaffordable && gs.firstEncounterId && (() => {
+                            const dateDef = DATE_OPTIONS.find(d => d.id === gs.firstEncounterId);
+                            return dateDef ? (
+                              <div className="mp-card-date-note">💝 with {dateDef.name}</div>
+                            ) : null;
+                          })()}
+                        </>
                       )}
                     </div>
                   </button>

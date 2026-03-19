@@ -20,7 +20,7 @@ const TICKER_ITEMS = [
   'URGENT: REPLY ALL INCIDENT UNDER INVESTIGATION',
 ];
 
-export default function IntroScreen({ onBegin, onLoad, hasSave }) {
+export default function IntroScreen({ onBegin, onLoad, hasSave, onViewEndings }) {
   const [phase, setPhase] = useState(0); // 0=logo, 1=text, 2=button
   const [tickerOffset, setTickerOffset] = useState(0);
   const [bgVisible, setBgVisible] = useState(false);
@@ -84,7 +84,7 @@ export default function IntroScreen({ onBegin, onLoad, hasSave }) {
           {/* Logo */}
           <div className={`intro-logo-block ${phase >= 0 ? 'intro-phase-in' : ''}`}>
             <img src="/sclogo.png" alt="Sweatshaw & Co" className="intro-logo-img" />
-            <div className="intro-logo-sub">Where Ambition Meets Accountability™</div>
+            <div className="intro-logo-sub">We Don't Break People. We Reveal What They're Made Of.</div>
           </div>
 
           {/* Text */}
@@ -103,11 +103,11 @@ export default function IntroScreen({ onBegin, onLoad, hasSave }) {
           {/* Buttons */}
           <div className={`intro-button-wrap ${phase >= 1 ? 'intro-phase-in' : ''}`}>
             <div className="intro-btn-row">
-              <button className="btn btn-primary btn-large intro-cta" onClick={onBegin}>
+              <button className="btn btn-primary btn-large intro-cta" onClick={onBegin} data-sound="accept">
                 [ NEW GAME ]
               </button>
               {hasSave && (
-                <button className="btn btn-secondary btn-large intro-cta intro-load-btn" onClick={onLoad}>
+                <button className="btn btn-secondary btn-large intro-cta intro-load-btn" onClick={onLoad} data-sound="accept">
                   [ LOAD GAME ]
                 </button>
               )}
@@ -118,6 +118,11 @@ export default function IntroScreen({ onBegin, onLoad, hasSave }) {
           </div>
         </div>
       </div>
+
+      {/* Endings button — bottom left */}
+      <button className="intro-endings-btn" onClick={onViewEndings}>
+        [ ENDINGS ]
+      </button>
 
       {/* News ticker at bottom */}
       <div className="intro-ticker">

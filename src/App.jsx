@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
-import IntroScreen    from './components/IntroScreen';
+import { useState, useEffect, useRef } from 'react';
+import IntroScreen     from './components/IntroScreen';
 import CharacterSelect from './components/CharacterSelect';
 import TraitAllocation from './components/TraitAllocation';
 import OnboardingCard  from './components/OnboardingCard';
 import BossIntro       from './components/BossIntro';
 import MainGame        from './components/MainGame';
 import GameEnding      from './components/GameEnding';
+import SlotPicker      from './components/SlotPicker';
+import EndingsGallery  from './components/EndingsGallery';
 import { calculateStartingStats } from './gameData';
 import { getQuarterlyRent } from './gameEngine';
 import './App.css';
@@ -18,30 +20,53 @@ export const SCREENS = {
   BOSS_INTRO: 'bossIntro',
   GAME:       'game',
   ENDING:     'ending',
+  LOAD_SLOT:  'loadSlot',
+  SAVE_SLOT:  'saveSlot',
+  ENDINGS:    'endings',
 };
 
-const SAVE_KEY = 'ctlg_save_v3';
+const SLOT_COUNT = 5;
+const slotKey    = (n) => `ctlg_slot_v1_${n}`;
 
+// ─── Slot helpers ──────────────────────────────────────────────────────────────
+const getSlot = (n) => {
+  try {
+    const raw = localStorage.getItem(slotKey(n));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+
+const getAllSlots = () => Array.from({ length: SLOT_COUNT }, (_, i) => getSlot(i + 1));
+
+const saveToSlot = (n, payload) => {
+  try {
+    localStorage.setItem(slotKey(n), JSON.stringify({ ...payload, savedAt: new Date().toISOString() }));
+  } catch { /* localStorage unavailable */ }
+};
+
+const clearSlot = (n) => {
+  try { localStorage.removeItem(slotKey(n)); } catch { /* noop */ }
+};
+
+const hasAnySave = () => getAllSlots().some(s => s !== null);
+
+// ─── Initial game state ────────────────────────────────────────────────────────
 const buildInitialGameState = (character, traits) => {
   const s = calculateStartingStats(traits);
 
-  // Housing setup — isRichLegacy starts in the penthouse (owned, no rent ever)
   const housingTier  = s.isRichLegacy ? 'penthouse' : 'studio';
-  const mansionOwned = false; // penthouse handles rent-free via getQuarterlyRent
+  const mansionOwned = false;
 
-  // Deduct Q1 rent from starting wealth
-  const q1Rent         = getQuarterlyRent(housingTier, mansionOwned);
+  const q1Rent          = getQuarterlyRent(housingTier, mansionOwned);
   const wealthAfterRent = Math.max(10_000, s.wealth - q1Rent);
 
   return {
-    // Identity
-    characterId:    character.id,
-    characterName:  character.name,
+    characterId:      character.id,
+    characterName:    character.name,
     characterPronoun: character.pronoun,
-    baseTraits:     traits,
-    companyName:    'Sweatshaw & Co',
+    baseTraits:       traits,
+    companyName:      'Sweatshaw & Co',
 
-    // Stats (wealth in dollars; comp/char/rep scale to 999, sanity to 200)
     stats: {
       competence:  s.competence,
       charisma:    s.charisma,
@@ -49,31 +74,52 @@ const buildInitialGameState = (character, traits) => {
       sanity:      s.sanity,
       wealth:      wealthAfterRent,
     },
-    sanityFloor:     s.sanityFloor,       // grit / 2 — breakdown threshold
-    traitMultipliers: s.traitMultipliers, // permanent growth multipliers
-    isLegacyHire:    s.isLegacyHire,
-    isRichLegacy:    s.isRichLegacy,
+    sanityFloor:      s.sanityFloor,
+    traitMultipliers: s.traitMultipliers,
+    isLegacyHire:     s.isLegacyHire,
+    isRichLegacy:     s.isRichLegacy,
 
-    // Housing
     housingTier,
     mansionOwned,
-    quarterStartWealth:   s.wealth,    // pre-rent wealth for salary statement
+    quarterStartWealth:   s.wealth,
     quarterlyRentPaid:    q1Rent,
-    quarterlyExpensesLog: [],          // [{label, amount}] of one-off spends
+    quarterlyExpensesLog: [],
 
-    // Wealth tracking
-    mummysHelpCount: 0,
-    mustRepayMum:    false,
-    secretBailout:   false,
+    mummysHelpCount:   0,
+    mustRepayMum:      false,
+    secretBailout:     false,
     pendingMummysHelp: false,
 
-    // Time
+    lowSanityQuarters: 0,
+
+    firstEncounterDone:          false,
+    firstEncounterId:            null,
+    dateUnlocked:                false,
+    yearTwoDateChosen:           false,
+    pendingFirstEncounterId:     null,
+    pendingNextSubScreen:        null,
+    pendingNextSpecialEventType: null,
+
+    relationshipPartnerId:                null,
+    relationshipIntimacy:                 0,
+    relationshipStatus:                   null,
+    relationshipEverReachedRelationship:  false,
+    proposalTriggered:                    false,
+    weddingYear:                          null,
+    weddingQuarter:                       null,
+
+    breakupEventType:    null,
+    pendingAfterBreakup: null,
+
+    isPEPath:           false,
+    salaryMultiplier:   1,
+    promoReqMultiplier: 1,
+
     currentYear:    1,
     currentQuarter: 1,
     currentMonth:   1,
     currentStageId: 'analyst',
 
-    // Tracking
     activityLog:           [],
     monthActivities:       [],
     linkedInMonths:        0,
@@ -91,87 +137,121 @@ const buildInitialGameState = (character, traits) => {
     titlesEarned:          [],
     allBadgesEarned:       [],
 
-    // Event counters
     eventIndex: 0,
 
-    // Sub-screen flow
-    subScreen:         'monthPicker',
-    pendingDateForMonth: null,
-    currentEvent:      null,
-    lastStatChanges:   null,
-    salarySummary:     null,
-    annualData:        null,
-    specialEventType:  null,
-    endingId:          null,
+    subScreen:                'monthPicker',
+    pendingDateForMonth:      null,
+    pendingSleepNext:         null,
+    sleepInChosenThisQuarter: false,
+    currentEvent:             null,
+    lastStatChanges:          null,
+    salarySummary:            null,
+    annualData:               null,
+    specialEventType:         null,
+    endingId:                 null,
   };
-};
-
-// ─── Save / Load helpers ───────────────────────────────────────────────────────
-const getSaveData = () => {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const hasSaveData = () => getSaveData() !== null;
-
-const persistSave = (payload) => {
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
-      ...payload,
-      savedAt: new Date().toISOString(),
-    }));
-  } catch {
-    // localStorage may be unavailable in some contexts
-  }
-};
-
-const clearSave = () => {
-  try { localStorage.removeItem(SAVE_KEY); } catch { /* noop */ }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [screen,     setScreen]     = useState(SCREENS.INTRO);
-  const [character,  setCharacter]  = useState(null);
-  const [traits,     setTraits]     = useState(null);
-  const [gameState,  setGameState]  = useState(null);
-  const [saveExists, setSaveExists] = useState(hasSaveData);
-  const [saveFlash,  setSaveFlash]  = useState(false); // brief "Saved!" indicator
+  const [screen,       setScreen]       = useState(SCREENS.INTRO);
+  const [character,    setCharacter]    = useState(null);
+  const [traits,       setTraits]       = useState(null);
+  const [gameState,    setGameState]    = useState(null);
+  const [currentSlot,  setCurrentSlot]  = useState(null);
+  const [saveExists,   setSaveExists]   = useState(hasAnySave);
+  const [saveFlash,    setSaveFlash]    = useState(false);
+  const audioRef       = useRef(null);
+  const endingAudioRef = useRef(null);
+  const [musicStarted, setMusicStarted] = useState(false);
+  const [musicPaused,  setMusicPaused]  = useState(false);
 
-  // Auto-save whenever in-game state changes
+  const startMusic = () => {
+    if (audioRef.current) return;
+    const audio = new Audio('/maintheme.mp3');
+    audio.loop   = true;
+    audio.volume = 0.4;
+    audioRef.current = audio;
+    setMusicStarted(true);
+    setTimeout(() => audio.play().catch(() => {}), 2000);
+  };
+
+  const toggleMusic = () => {
+    if (!audioRef.current) return;
+    if (audioRef.current.paused) {
+      audioRef.current.play();
+      setMusicPaused(false);
+    } else {
+      audioRef.current.pause();
+      setMusicPaused(true);
+    }
+  };
+
+  // Global click sound
+  useEffect(() => {
+    const cache = {};
+    const getAudio = (src) => {
+      if (!cache[src]) { cache[src] = new Audio(src); cache[src].volume = 0.4; }
+      return cache[src];
+    };
+    const SOUND_FILES = { accept: '/Accept.mp3', decline: '/decline.wav' };
+    const handleClick = (e) => {
+      const soundName = e.target.closest('[data-sound]')?.dataset.sound;
+      const src = SOUND_FILES[soundName] ?? '/click.wav';
+      const audio = getAudio(src);
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  // Auto-save to current slot whenever in-game state changes
   useEffect(() => {
     if (screen !== SCREENS.GAME || !gameState) return;
-    persistSave({ screen, character, traits, gameState });
+    let slot = currentSlot;
+    if (slot === null) {
+      const slots  = getAllSlots();
+      const emptyI = slots.findIndex(s => s === null);
+      slot = emptyI >= 0 ? emptyI + 1 : 1;
+      setCurrentSlot(slot);
+    }
+    saveToSlot(slot, { screen: SCREENS.GAME, character, traits, gameState });
     setSaveExists(true);
   }, [gameState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goTo = (s) => setScreen(s);
 
-  // ── Manual save (called from game header button) ─────────────────────────
-  const handleManualSave = () => {
-    persistSave({ screen, character, traits, gameState });
+  // ── Manual save — opens slot picker ──────────────────────────────────────
+  const handleManualSave = () => goTo(SCREENS.SAVE_SLOT);
+
+  const handleSaveToSlot = (slotNum) => {
+    saveToSlot(slotNum, { screen: SCREENS.GAME, character, traits, gameState });
+    setCurrentSlot(slotNum);
     setSaveExists(true);
     setSaveFlash(true);
     setTimeout(() => setSaveFlash(false), 2000);
+    goTo(SCREENS.GAME);
   };
 
-  // ── Load game ────────────────────────────────────────────────────────────
-  const handleLoadGame = () => {
-    const saved = getSaveData();
+  // ── Load game — opens slot picker ─────────────────────────────────────────
+  const handleLoadGame = () => goTo(SCREENS.LOAD_SLOT);
+
+  const handleSlotLoad = (slotNum) => {
+    const saved = getSlot(slotNum);
     if (!saved) return;
+    startMusic();
     setCharacter(saved.character);
     setTraits(saved.traits);
     setGameState(saved.gameState);
+    setCurrentSlot(slotNum);
     setScreen(saved.screen || SCREENS.GAME);
   };
 
-  // ── New game flow ─────────────────────────────────────────────────────────
+  // ── New game flow ──────────────────────────────────────────────────────────
   const handleCharacterSelect = (char) => {
+    startMusic();
     setCharacter(char);
     goTo(SCREENS.TRAITS);
   };
@@ -185,34 +265,85 @@ export default function App() {
     const gs = buildInitialGameState(character, traits);
     gs.yearStartStats = { ...gs.stats };
     setGameState(gs);
+    setCurrentSlot(null); // slot assigned on first auto-save
     goTo(SCREENS.BOSS_INTRO);
   };
 
-  const handleBossIntroDone = () => {
-    goTo(SCREENS.GAME);
-  };
+  const handleBossIntroDone = () => goTo(SCREENS.GAME);
 
   const handleEndingReached = (endingId) => {
     setGameState(prev => ({ ...prev, endingId }));
-    clearSave();
-    setSaveExists(false);
+    if (currentSlot) clearSlot(currentSlot);
+    setCurrentSlot(null);
+    setSaveExists(hasAnySave());
+    if (['burntOut', 'bankruptcy', 'mentalBreakdown'].includes(endingId)) {
+      if (audioRef.current) audioRef.current.pause();
+      const failAudio = new Audio('/fail.flac');
+      failAudio.volume = 0.6;
+      failAudio.play().catch(() => {});
+    }
+    if (['madePartner', 'madeMD'].includes(endingId)) {
+      if (audioRef.current) audioRef.current.pause();
+      setTimeout(() => {
+        const victoryAudio = new Audio('/victory.mp3');
+        victoryAudio.volume = 0.6;
+        victoryAudio.play().catch(() => {});
+      }, 2000);
+    }
+    if (['backToFamilyBusiness', 'earlyRetirement', 'startupSuccess'].includes(endingId)) {
+      if (audioRef.current) audioRef.current.pause();
+      const legacyAudio = new Audio('/legacy.mp3');
+      endingAudioRef.current = legacyAudio;
+      setTimeout(() => {
+        legacyAudio.volume = 0.6;
+        legacyAudio.play().catch(() => {});
+      }, 2000);
+    }
+    if (['upOrOut', 'permanentVP', 'headOfInternalStrategy', 'startupBust'].includes(endingId)) {
+      if (audioRef.current) audioRef.current.pause();
+      const badAudio = new Audio('/badending.mp3');
+      endingAudioRef.current = badAudio;
+      setTimeout(() => {
+        badAudio.volume = 0.6;
+        badAudio.play().catch(() => {});
+        setTimeout(() => {
+          const steps = 40;
+          const interval = 4000 / steps;
+          const decrement = badAudio.volume / steps;
+          const fade = setInterval(() => {
+            if (!endingAudioRef.current) { clearInterval(fade); return; }
+            badAudio.volume = Math.max(0, badAudio.volume - decrement);
+            if (badAudio.volume <= 0) { badAudio.pause(); endingAudioRef.current = null; clearInterval(fade); }
+          }, interval);
+        }, 25000);
+      }, 1000);
+    }
     goTo(SCREENS.ENDING);
   };
 
   const handleRestart = () => {
+    if (endingAudioRef.current) { endingAudioRef.current.pause(); endingAudioRef.current = null; }
     setCharacter(null);
     setTraits(null);
     setGameState(null);
+    setCurrentSlot(null);
     goTo(SCREENS.INTRO);
   };
 
   return (
     <div className="app">
+      {musicStarted && (
+        <button className="music-toggle-btn" onClick={toggleMusic} title={musicPaused ? 'Play music' : 'Pause music'}>
+          {musicPaused ? '▶' : '⏸'}
+        </button>
+      )}
+
       {screen === SCREENS.INTRO && (
         <IntroScreen
-          onBegin={() => goTo(SCREENS.CHARACTER)}
+          onBegin={() => { startMusic(); goTo(SCREENS.CHARACTER); }}
           onLoad={handleLoadGame}
           hasSave={saveExists}
+          onViewEndings={() => goTo(SCREENS.ENDINGS)}
         />
       )}
       {screen === SCREENS.CHARACTER && (
@@ -238,6 +369,25 @@ export default function App() {
       )}
       {screen === SCREENS.ENDING && gameState && (
         <GameEnding endingId={gameState.endingId} gameState={gameState} onRestart={handleRestart} />
+      )}
+      {screen === SCREENS.ENDINGS && (
+        <EndingsGallery onClose={() => goTo(SCREENS.INTRO)} />
+      )}
+      {screen === SCREENS.LOAD_SLOT && (
+        <SlotPicker
+          slots={getAllSlots()}
+          mode="load"
+          onSelect={handleSlotLoad}
+          onCancel={() => goTo(SCREENS.INTRO)}
+        />
+      )}
+      {screen === SCREENS.SAVE_SLOT && (
+        <SlotPicker
+          slots={getAllSlots()}
+          mode="save"
+          onSelect={handleSaveToSlot}
+          onCancel={() => goTo(SCREENS.GAME)}
+        />
       )}
     </div>
   );

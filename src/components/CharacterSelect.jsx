@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { CHARACTERS } from '../gameData';
 
+const SELECT_IMAGES = {
+  paige: '/paigedetail.png',
+  max:   '/maxdetail.png',
+};
+
 export default function CharacterSelect({ onSelect }) {
   const [hovered, setHovered] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -37,7 +42,7 @@ export default function CharacterSelect({ onSelect }) {
             <div className="card-accent-bar" />
             <div className="card-avatar">
               <img
-                src={`/${char.id}.png`}
+                src={SELECT_IMAGES[char.id] ?? `/${char.id}.png`}
                 alt={char.name}
                 className="card-avatar-img"
               />

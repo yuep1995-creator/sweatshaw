@@ -107,20 +107,24 @@ export const calculateStartingStats = (traits) => {
   // Derived multipliers — calculated once at game start, stored in gs.traitMultipliers
   const traitMultipliers = {
     competenceMultiplier:    1 + (intelligence - 10) / 100, // 1.00 – 1.90
-    sanityLossReduction:     (grit - 10) / 100,             // 0.00 – 0.90
-    charismaMultiplierLooks: 1 + (looks - 10) / 100,        // 1.00 – 1.90
-    reputationMultiplier:    1 + (streetSmart - 10) / 100,  // 1.00 – 1.90
+    // Rich Legacy: -0.2 → formula becomes loss × (1 − −0.2) = loss × 1.2 (120% sanity damage)
+    // Normal: (grit − 10) / 200 → 0.00–0.45 reduction on sanity losses
+    sanityLossReduction:     isRichLegacy ? -0.2 : (grit - 10) / 200,
+    charismaMultiplierLooks:       1 + (looks - 10) / 100 * 0.5,         // 1.00 – 1.45
+    charismaMultiplierStreetSmart: 1 + (streetSmart - 10) / 100 * 0.3,  // 1.00 – 1.27
+    reputationMultiplier:          1 + (streetSmart - 10) / 100 * 0.7,  // 1.00 – 1.63
   };
 
   return {
     competence:  intelligence,                              // 10–100 starting
-    charisma:    looks,                                     // 10–100 starting
-    reputation:  10 + Math.floor(familyBackground * 0.3),  // 13–40 starting
-    sanity:      Math.min(200, 50 + Math.floor(grit * 0.3)), // 53–80 starting
-    sanityFloor: Math.floor(grit / 2),                     // 5–50 breakdown threshold
+    charisma:    looks * 3 + Math.floor(streetSmart / 2),   // 35–350 starting
+    reputation:  Math.round(10 + familyBackground * 0.5),  // 15–60 starting
+    sanity:      Math.min(200, Math.round(50 + grit * 0.5)), // 55–100 starting
+    // Rich Legacy sanity floor is 30 — below triggers backToFamilyBusiness at quarter end
+    sanityFloor: isRichLegacy ? 30 : 0,
     wealth:      startingWealth,
     traitMultipliers,
-    isLegacyHire: familyBackground >= 35,
+    isLegacyHire: familyBackground > 70,
     isRichLegacy,
   };
 };
@@ -130,22 +134,24 @@ export const calculateStartingStats = (traits) => {
 // ─────────────────────────────────────────────
 export const getProfile = (traits) => {
   const { intelligence, looks, streetSmart, grit, familyBackground } = traits;
-  const vals = Object.values(traits);
-  const allBalanced = vals.every(v => v >= 31 && v <= 60);
+  const coreVals = [intelligence, looks, streetSmart, grit];
+  const allVals = Object.values(traits);
+  const maxCore = Math.max(...coreVals);
+  const allBalanced = allVals.every(v => v >= 20 && v <= 40);
 
   if (familyBackground === 100)
     return `"Candidate's father plays golf with our CEO every third Sunday.\nInterview scores were recorded as a matter of procedure.\nThe desk has already been assigned."`;
 
-  if (intelligence > 60)
+  if (intelligence > 49 && intelligence === maxCore)
     return `"Analytically exceptional. Finished the technical case study\nthirty minutes early and then corrected a typo in our question.\nFrankly, a little embarrassing for everyone involved."`;
 
-  if (looks > 60)
+  if (looks > 49 && looks === maxCore)
     return `"Impeccably presented. Three interviewers described the candidate\nas 'very polished' without being asked.\nClient-facing placement. Immediately."`;
 
-  if (streetSmart > 60)
+  if (streetSmart > 49 && streetSmart === maxCore)
     return `"Knew which interviewer had the real decision-making power\nwithin five minutes of sitting down.\nWe are still discussing whether this is impressive or concerning."`;
 
-  if (grit > 60)
+  if (grit > 49 && grit === maxCore)
     return `"Demonstrates exceptional resilience and work ethic.\nWill almost certainly still be here at midnight.\nWe are monitoring this."`;
 
   if (allBalanced)
@@ -199,7 +205,7 @@ export const ACTIVITIES = [
   {
     id: 'crunchDeal',
     icon: '💼',
-    name: 'Crunch Deal',
+    name: 'Deal Crunch',
     description: 'A live deal just landed. You know what that means.',
     category: 'Work',
     cost: 0,
@@ -209,22 +215,12 @@ export const ACTIVITIES = [
   {
     id: 'pitchClients',
     icon: '📊',
-    name: 'Pitch New Clients',
+    name: 'Client Pitch',
     description: 'Showtime.',
     category: 'Work',
     cost: 0,
-    effects: { charisma: 6, reputation: 3, competence: 3, sanity: -5 },
-    charismaScaled: true,
-    socialActivity: true,
-  },
-  {
-    id: 'deepSkillWork',
-    icon: '🎓',
-    name: 'Deep Skill Work',
-    description: 'Head down. Doing the actual work.',
-    category: 'Work',
-    cost: 500,
-    effects: { competence: 10, sanity: -3 },
+    effects: { reputation: 4, charisma: 4, sanity: -5 },
+    promotionScaled: true,
   },
   {
     id: 'extraResponsibilities',
@@ -233,7 +229,16 @@ export const ACTIVITIES = [
     description: '"Sure," you said. "Happy to help," you said.',
     category: 'Work',
     cost: 0,
-    effects: { reputation: 7, competence: 5, sanity: -8 },
+    effects: { reputation: 8, competence: 6, sanity: -12 },
+  },
+  {
+    id: 'slackLookBusy',
+    icon: '💤',
+    name: 'Slack and Look Busy',
+    description: 'Perfecting the art of visible idleness.',
+    category: 'Work',
+    cost: 0,
+    effects: { reputation: 4, sanity: 2 },
   },
   {
     id: 'networkInternal',
@@ -258,13 +263,34 @@ export const ACTIVITIES = [
     socialActivity: true,
   },
   {
+    id: 'linkedInPosting',
+    icon: '📱',
+    name: 'LinkedIn Posting',
+    description: 'Sharing your journey. Either people care, or they don\'t.',
+    category: 'Social',
+    cost: 0,
+    effects: { sanity: -1 },
+    coinFlip: { chance: 0.5, good: { reputation: 10 }, bad: { reputation: -2 } },
+    charismaScaled: true,
+    trackAs: 'linkedInMonths',
+  },
+  {
+    id: 'yachtParty',
+    icon: '🛥️',
+    name: 'Yacht Party',
+    description: 'You know someone who knows someone. The champagne is cold. The networking is warmer.',
+    category: 'Social',
+    cost: 50_000,
+    effects: { reputation: 40, charisma: 20 },
+  },
+  {
     id: 'therapy',
     icon: '🧘',
     name: 'Therapy',
     description: 'Radical self-awareness. Slightly career-limiting. Highly recommended.',
     category: 'Recovery',
-    cost: 1_000,
-    effects: { sanity: 10, reputation: 2 },
+    cost: 5_000,
+    effects: { sanity: 50 },
   },
   {
     id: 'hitGym',
@@ -272,20 +298,31 @@ export const ACTIVITIES = [
     name: 'Hit the Gym',
     description: 'The only place where your work phone doesn\'t follow. In theory.',
     category: 'Recovery',
-    cost: 300,
-    effects: { sanity: 7, charisma: 3 },
+    cost: 2_000,
+    effects: { sanity: 15, charisma: 3 },
     charismaScaled: true,
   },
   {
-    id: 'takeWeekend',
-    icon: '🛋️',
-    name: 'Take a Weekend',
-    description: 'You\'ve earned this. The emails will survive. Probably.',
+    id: 'sleepIn',
+    icon: '😴',
+    name: 'Sleep In',
+    description: 'You cancelled everything. You regret nothing. You\'re slightly behind.',
     category: 'Recovery',
-    cost: 500,
-    effects: { sanity: 12 },
+    cost: 0,
+    effects: { sanity: 30, charisma: -2, competence: -2 },
+  },
+  {
+    id: 'goOnDate',
+    icon: '💝',
+    name: 'Date Night',
+    description: 'Someone is interested. The question is whether you have the bandwidth.',
+    category: 'Recovery',
+    cost: 0,
+    variableCost: true,
+    effects: {},
+    variableEffects: true,
     requiresDateFromYear: 2,
-    socialActivity: true,
+    minYear: 2,
   },
   {
     id: 'officeGossip',
@@ -309,17 +346,6 @@ export const ACTIVITIES = [
     trackAs: 'sideProjectMonths',
   },
   {
-    id: 'linkedInPosting',
-    icon: '📱',
-    name: 'LinkedIn Posting',
-    description: 'Sharing your journey. People are engaging.',
-    category: 'Wild Card',
-    cost: 0,
-    effects: { charisma: 2, reputation: -3, sanity: 1 },
-    charismaScaled: true,
-    trackAs: 'linkedInMonths',
-  },
-  {
     id: 'doNothing',
     icon: '😶',
     name: 'Do Nothing',
@@ -335,44 +361,97 @@ export const ACTIVITIES = [
 // DATE OPTIONS
 // ─────────────────────────────────────────────
 export const DATE_OPTIONS = [
+  // ── First Encounter dates (Paige — unlocked via First Encounter event) ──
   {
-    id: 'jordan',
-    name: 'Jordan',
-    description: 'The charming rival at a competing firm.',
-    dateCost: 400,
-    effects: { sanity: 10, charisma: 3, reputation: 2 },
-    charismaScaled: true,
-    flavour: 'They order for the table without asking. You\'re annoyed. You\'re impressed. You\'re confused.',
-    milestoneText: 'Jordan texts first this time. Progress? Complication? Both.',
+    id: 'victor',
+    name: 'Victor Hughes',
+    description: 'The rival analyst. He made an impression at the IBD networking event.',
+    dateCost: 500,
+    requires: {},
+    effects: { competence: 7 },
+    flavour: 'You picked the restaurant. He picked a better one. You went to his choice. Neither of you mentioned it.',
+    milestoneText: 'Victor messages you before the conference even starts. "I need an ally in enemy territory."',
+    encounterOnly: true,
   },
   {
-    id: 'sam',
-    name: 'Sam',
-    description: 'The quietly competent colleague from your floor.',
-    dateCost: 100,
-    effects: { sanity: 14, reputation: 3, charisma: 2 },
-    charismaScaled: true,
-    flavour: 'You talk for four hours. About nothing important. It was exactly what you needed.',
-    milestoneText: 'Sam remembers how you take your coffee. You didn\'t know you needed that.',
+    id: 'marco',
+    name: 'Marco Moretti',
+    description: 'The Equinox trainer. Dance floor energy. Surprisingly good at listening.',
+    dateCost: 500,
+    requires: {},
+    effects: { sanity: 5, charisma: 5 },
+    flavour: 'He already made a reservation when you texted him. Of course he had.',
+    milestoneText: 'Marco sends a voice note. You play it twice.',
+    encounterOnly: true,
   },
   {
-    id: 'riley',
-    name: 'Riley',
-    description: "Your manager's assistant.",
-    dateCost: 200,
-    effects: { sanity: 8, charisma: 4 },
-    charismaScaled: true,
-    flavour: 'Riley knows things. Useful things. You\'re not sure if this is dating or intelligence gathering.',
-    milestoneText: 'Riley mentions a name in passing. You file it away. You can\'t help it.',
+    id: 'david',
+    name: 'David Li',
+    description: 'The MIT PhD who works at FAANG. Different pace. Better questions.',
+    dateCost: 300,
+    requires: {},
+    effects: { sanity: 10, competence: 3 },
+    flavour: 'He listened properly. You forgot that was a thing people could do.',
+    milestoneText: 'David sends you a paper he thought you\'d like. He was right.',
+    encounterOnly: true,
+  },
+
+  {
+    id: 'julien',
+    name: 'Julien Laurent',
+    description: 'The Wall Street partner. Mature, charming, and already knows how you think.',
+    dateCost: 1_000,
+    requires: {},
+    effects: { sanity: 5, reputation: 5 },
+    flavour: 'He listened to the whole story before saying anything. That alone felt unusual.',
+    milestoneText: 'Julien mentions your name in a room you weren\'t in. You find out three days later.',
+    encounterOnly: true,
+  },
+
+  // ── First Encounter dates (Max — unlocked via First Encounter event) ──
+  {
+    id: 'adira',
+    name: 'Adira Sharma',
+    description: 'The M&A lawyer. Sharp, competitive, and dangerously good advice.',
+    dateCost: 500,
+    requires: {},
+    effects: { competence: 7 },
+    flavour: 'She ordered for the table before you finished reading the menu. She was right about everything.',
+    milestoneText: 'Adira forwards you a draft term sheet. "Tell me what\'s wrong with it." There are three things.',
+    encounterOnly: true,
   },
   {
-    id: 'alex',
-    name: 'Alex',
-    description: 'A university friend. Not in finance.',
-    dateCost: 50,
-    effects: { sanity: 18, competence: -1 },
-    flavour: 'You remembered you have a personality. It was in storage.',
-    milestoneText: 'Alex asks how you\'re actually doing. The honest answer surprises you.',
+    id: 'anastasia',
+    name: 'Anastasia Orlova',
+    description: 'The model. Spectacular. Expensive. Worth it.',
+    dateCost: 5_000,
+    requires: {},
+    effects: { sanity: 5, charisma: 5 },
+    flavour: 'She mentioned the bag twice. You bought it. She mentioned it once more, approvingly.',
+    milestoneText: 'Anastasia tags you in a story from the Hamptons. Your phone does not stop.',
+    encounterOnly: true,
+  },
+  {
+    id: 'olivia',
+    name: 'Olivia Beaufort',
+    description: 'The art curator. Posh, elegant, and quietly well-connected.',
+    dateCost: 2_000,
+    requires: {},
+    effects: { sanity: 5, reputation: 7 },
+    flavour: 'She corrected the sommelier. Politely. He thanked her.',
+    milestoneText: 'Olivia leaves you a voicemail about a private view. It\'s not the kind of thing you get invited to.',
+    encounterOnly: true,
+  },
+  {
+    id: 'emily',
+    name: 'Emily Miller',
+    description: 'The childhood friend. Warm, grounding, and genuinely glad to see you.',
+    dateCost: 300,
+    requires: {},
+    effects: { sanity: 15 },
+    flavour: 'She asked three times if you were okay. The third time, you told her the truth.',
+    milestoneText: 'Emily texts to check in. Not about work. Just you.',
+    encounterOnly: true,
   },
 ];
 
@@ -459,16 +538,27 @@ export const QUARTERLY_EVENTS = [
 // ─────────────────────────────────────────────
 // MANAGER NOTE TEMPLATES (Annual Review)
 // ─────────────────────────────────────────────
-export const getManagerNote = (stats, name) => {
-  const candidates = ['competence', 'charisma', 'reputation', 'sanity'];
-  const lowest = candidates.reduce((a, b) => stats[a] < stats[b] ? a : b);
-  const map = {
-    sanity: `Shows exceptional commitment. We would like to remind ${name} that the Employee Assistance Programme exists.`,
-    charisma: `${name} demonstrates strong technical output and would benefit from increased visibility with senior stakeholders.`,
-    reputation: `Some feedback has been received regarding team dynamics. A development conversation has been scheduled.`,
-    competence: `${name} brings excellent energy to the team. Technical development remains an area of focus.`,
+export const getManagerNote = (endStats, yearStartStats, name) => {
+  if (endStats.sanity < 30) {
+    return `Shows exceptional commitment. We would like to remind ${name} that the Employee Assistance Programme exists.`;
+  }
+
+  const compDelta = endStats.competence - (yearStartStats?.competence ?? 0);
+  const charDelta = endStats.charisma   - (yearStartStats?.charisma   ?? 0);
+  const repDelta  = endStats.reputation - (yearStartStats?.reputation ?? 0);
+
+  if (compDelta + charDelta + repDelta < 100) {
+    return `Year-on-year performance metrics are below expectations. ${name}'s output requires significant improvement. A structured development plan is being prepared.`;
+  }
+
+  const deltas  = { competence: compDelta, charisma: charDelta, reputation: repDelta };
+  const topStat = Object.keys(deltas).reduce((a, b) => deltas[a] >= deltas[b] ? a : b);
+  const notes   = {
+    competence: `Technical output this year has been exemplary. ${name} continues to build a compelling and differentiated skills profile.`,
+    charisma:   `Stakeholder management and interpersonal presence have shown marked improvement. ${name} is becoming a trusted face across the floor.`,
+    reputation: `Profile and visibility within the firm have grown substantially. ${name}'s name is being mentioned in the right rooms.`,
   };
-  return map[lowest];
+  return notes[topStat];
 };
 
 // ─────────────────────────────────────────────
@@ -480,7 +570,6 @@ export const BADGES = {
   spreadsheetWhisperer: { icon: '🧠', label: 'Spreadsheet Whisperer',  desc: 'Competence grew more than 15 points in a year.' },
   theGhost:             { icon: '👻', label: 'The Ghost',               desc: 'No networking activity in a full year.' },
   runningOnFumes:       { icon: '🫠', label: 'Running on Fumes',        desc: 'Sanity dropped below 25 during the year.' },
-  linkedInInfluencer:   { icon: '🤡', label: 'LinkedIn Influencer',     desc: 'Chose LinkedIn Posting 4+ times in a year.' },
   actuallyOkay:         { icon: '🧘', label: 'Actually Okay',           desc: 'Sanity above 70 at every quarter end this year.' },
   taken:                { icon: '💌', label: 'Taken',                   desc: 'Same date chosen 3+ times.' },
   overachiever:         { icon: '🏆', label: 'Overachiever',            desc: 'Met accelerated promotion criteria.' },
@@ -493,12 +582,12 @@ export const ENDINGS = {
   backToFamilyBusiness: {
     title: 'Back to the Family Business.',
     colour: '#d4a017',
-    text: (name) => `The call came on a Thursday. Or perhaps a Wednesday. ${name} had stopped tracking days with any particular precision around month eight.\n\nIt was the estate lawyer. The portfolio needed attention. The properties required decisions. The businesses — plural, always plural — had been waiting patiently for the person whose name was on the succession documents.\n\n${name} sat with the phone for a long time after hanging up. Then booked a flight.\n\nBanking had been an interesting detour. Genuinely interesting. The models, the deals, the architecture of money moving at speed — there was something honest about learning how it all worked from the inside, rather than simply inheriting the outcome. But the promotion cycle, the performance scores calibrated to two decimal places, the annual review where someone who earned a fraction of the family's quarterly dividend explained ${name}'s "development areas" — none of that had ever really been the point.\n\nThe point was always going to be the same thing it had always been. The name above the door. The seat at the table that had been waiting, upholstered and empty, since before ${name} could read.\n\nThey did not consider this a failure. The game had been interesting. They had simply decided to stop playing it.`,
-    epilogue: 'The handover was seamless. It always is, when the infrastructure was already there.',
+    text: (name) => `${name} has decided to stop playing the Wall Street game.\n\nBanking had been an interesting detour. Genuinely interesting. The models, the deals, the architecture of money moving at speed — there was something honest about learning how it all worked from the inside, rather than simply inheriting the outcome. But the promotion cycle, the performance scores calibrated to two decimal places, the annual review where someone who earned a fraction of the family's quarterly dividend explained ${name}'s "development areas" — none of that had ever really been the point.\n\n${name} did not consider this a failure. The game had been interesting. ${name} had simply decided to stop playing it.\n\n${name} called the parents, messaged old friends from private school, and chartered a jet to Bora Bora. Two weeks in Bora Bora became three. Then there was talk of Switzerland — the Verbier chalet had been sitting largely unused since Covid, which was practically a waste.\n\nOf course the IBD recovery vacation did not go on forever. The family's European acquisition needed oversight. The Hong Kong office was in the middle of a restructure that required someone who understood both the balance sheet and the family's expectations for it. There was a board seat. There had always been going to be a board seat. The chair had been figuratively upholstered and waiting since before ${name} could read a P&L.\n\n"When you're ready," ${name}'s father said.\n\nHe did not ask if ${name} was ready. He had not asked because the answer had never really been in question.`,
+    epilogue: (name) => `The game had been interesting. ${name} had simply been playing a different one all along.`,
   },
   burntOut: {
     title: 'Burnt Out.',
-    colour: '#f59e0b',
+    colour: '#ef4444',
     text: (name) => `${name} didn't mean to quit. Not really. There was no grand moment of clarity, no dramatic resignation speech.\n\nOne morning, the alarm went off. ${name} stared at the ceiling. Then set the alarm again. Then again.\n\nOn the third day, they emailed HR. The subject line said "personal leave." The body said almost nothing. The truth was simpler: there was nothing left.\n\nThe questions came later, in the silence that followed. What had it all been for? Was this what ambition was supposed to feel like when it ran out? The answers weren't forthcoming. But for the first time in years, there was time to sit with them.`,
     epilogue: 'The therapist helped. Slowly. So did sleep, and weekends that felt like actual weekends.',
   },
@@ -520,82 +609,60 @@ export const ENDINGS = {
     text: (name) => `They didn't tell ${name} directly. That was never how it was done.\n\nThe signs were there — a smaller room, a meeting removed from the agenda, a project with a vague mandate and no reporting line. "Head of Internal Strategy." The title sounded important. No one came to ask for strategy.\n\n${name} had been close. Closer than most ever got. But in the final year, something had shifted — the room had changed its mind, or ${name} had, or both. The partnership had gone to someone else. The rest was just administration.`,
     epilogue: '"Director." The business card still said that. It was still true. It was also, somehow, the last true thing.',
   },
-  gracefulExit: {
-    title: 'The Clean Break.',
-    colour: '#22c55e',
-    text: (name) => `${name} handed in their notice on a Tuesday. No drama. No counteroffer accepted.\n\nThey felt nothing but relief — which was the most surprising thing of all.`,
-    epilogue: 'The first Monday morning without a commute was very quiet. Then it was just... good.',
+  fire: {
+    title: 'F.I.R.E.',
+    colour: '#8b90b0',
+    text: (name) => `${name} had more than enough — more, honestly, than they knew what to do with.\n\nFor the better part of a year, the sanity numbers had been quietly, consistently low. Not a crisis. No dramatic collapse. Just a steady grey dimming that made every Tuesday feel like a Monday.\n\nOn a Wednesday morning, they submitted a leaving notice. HR acknowledged it with a calendar invite. No counteroffer was entertained. The farewell drinks were cordial. Someone said "we'll stay in touch" and everyone nodded. The role was posted internally the following week, and had someone in the seat in six.\n\n${name} landed in Bangkok with a carry-on bag and nothing scheduled. They moved slowly — temples, markets, a ten-day silent retreat in Chiang Mai they nearly abandoned on day three but didn't. They read things they'd bookmarked years ago. They learned what it felt like to not check the time.\n\nWhat came next remained an open question. A small bakery in lower Manhattan, maybe. Or a country where the savings outlast the ambition and the pace of life doesn't require a recovery plan. For now, the question itself felt like a luxury they had finally earned.`,
+    epilogue: 'The Wi-Fi was unreliable in most places. That turned out to be fine.',
   },
   goldenHandcuffs: {
     title: 'The Golden Cage.',
-    colour: '#d4a017',
+    colour: '#8b90b0',
     text: (name) => `${name} could leave. The number in the account made it possible.\n\nThe number in the account also made it feel impossible. The walls had gotten comfortable. Or maybe just familiar.`,
     epilogue: 'The flat is very nice. The 4am emails, less so.',
   },
-  founder: {
-    title: 'You Didn\'t Leave. You Launched.',
-    colour: '#4f6ef7',
-    text: (name) => `The side project had been running for two years before ${name} admitted it was actually a company.\n\nThe day they registered it was a Thursday. Nobody noticed them leave Sweatshaw & Co three months later.`,
-    epilogue: 'Seed round closed. The pitch deck had one slide that just said "we\'ve been doing this anyway."',
-  },
-  linkedInInfluencer: {
-    title: 'The Thought Leader.',
-    colour: '#a78bfa',
-    text: (name) => `${name} didn't mean for it to go this far.\n\nThe post about "lessons from the trading floor" got 40,000 impressions. The one about "why I quit" got 400,000. The speaking fee now covers rent.`,
-    epilogue: '"Career speaker & consultant. Sweatshaw & Co alum." The pinned post has 2.1k likes.',
-  },
   regulator: {
-    title: 'The Rule Changer.',
-    colour: '#22c55e',
-    text: (name) => `${name} learned how the game worked — all of it.\n\nThen, quietly and methodically, began to change the rules. Not loudly. Just persistently.`,
-    epilogue: 'Three policy changes. One industry standard. Nobody saw it coming.',
+    title: 'Out of Office (Permanently).',
+    colour: '#8b90b0',
+    text: (name) => `It happened on a Wednesday. No dramatic final straw — just 1am, a deck revised for the ninth time at the request of someone who would ask for a tenth.\n\n${name} finally clicked 'send' on the email draft that had been sitting in the drafts folder for months.\n\n${name} sent out the next email with a light exhale.\nIt starts with 'Thank you & Farewell'.\n\nWhat came next was uncertain in all the best ways — no calendar, no quarterly review, no deck requiring a ninth revision by someone who would ask for a tenth. Just a Wednesday that had become a Thursday that had become, improbably, the first morning in three years with absolutely nowhere to be.\n\n${name} made coffee. Watched the city from the office window for the last time.\nIt's time for the next chapter.`,
+    epilogue: (name, _sanity, gs) => {
+      const pronoun = gs?.characterId === 'max' ? 'his' : 'her';
+      return `${name} did not forget to update ${pronoun} OOO message before dashing out: "Dear sender, I am currently ooo, indefinitely."`;
+    },
   },
   madePartner: {
     title: 'Corner Office.',
     colour: '#d4a017',
-    text: (name) => `After twelve years, Sweatshaw & Co offered ${name} a partnership.\n\nThe ceremony was understated. The cake was good. The office faced east, which meant you saw the sunrise most mornings, whether you wanted to or not.`,
-    epilogue: (sanity) =>
-      sanity > 70 ? 'The work was hard. The life was full. Not perfect. Full. There\'s a difference.'
-      : sanity > 40 ? 'The work was good. The rest of life had become something negotiated around it. You\'re working on that.'
-      : 'You made it. You\'re not entirely sure what "it" was. Your therapist has opinions.',
+    text: (name) => `After years at Darkstone & Partners, ${name} made Partner.\n\nThe announcement came on a Tuesday. The equity split was favourable. The office had a view that required no explanation.\n\nPrivate equity rewards a specific kind of person. ${name} had always suspected they were that person. The carry distribution confirmed it.`,
+    epilogue: (_name, sanity) =>
+      sanity > 70 ? 'The work was hard. The returns were real. Not every trade-off made sense at the time. Most of them do now.'
+      : sanity > 40 ? 'The work was relentless. The money made the relentlessness easier to justify. Most days.'
+      : 'You made Partner. The number is very large. You\'ll feel something about it eventually.',
   },
   hollowVictory: {
     title: 'Empty Table.',
-    colour: '#555e80',
-    text: (name) => `${name} made Partner. The celebration dinner had three people. Two were from HR.\n\nThe canapés were very good.`,
+    colour: '#d4a017',
+    text: (name) => `${name} made Partner at Darkstone & Partners. The celebration dinner had three people. Two were from IR.\n\nThe canapés were very good.`,
     epilogue: '"Effective. Strategic. Results-driven." The review always said the same things. They meant them. That was the strangest part.',
   },
-  earlyRetirement: {
-    title: 'THE EXIT',
-    colour: '#d97706',
-    text: (name, stats) => {
-      const p1 = `${name} had more money than they knew what to do with. That sentence had once seemed like a problem they would enjoy having. It turned out to be more complicated than that.`;
-
-      let p2 = '';
-      if ((stats?.wealth || 0) > 50_000_000) {
-        p2 = `Fifty million dollars. More than fifty million dollars. ${name} had not checked the exact figure in three weeks because the exact figure had stopped meaning anything in any human sense. It was a number. Numbers were what they used to feel things. Now the numbers were too large and the feelings were too small.`;
-      } else {
-        p2 = `The account balance had cleared eight figures sometime in the last year. ${name} remembered noticing and then immediately returning to the spreadsheet they had been working on. There had not been time to think about what it meant. There was never time.`;
-      }
-
-      const p3 = `The resignation was quiet. A conversation, a handshake, a leaving gift from a team who had genuinely liked them and would forget them in six months — not out of cruelty but out of the sheer velocity of the place they were leaving behind.`;
-
-      let p4 = '';
-      if ((stats?.sanity || 100) < 15) {
-        p4 = `The first month was not the relief they had imagined. The body does not simply stop when the schedule does. ${name} woke at 5:30am for eleven weeks straight, reached for a phone that no longer needed to be checked, and lay in the silence of a morning with nowhere to be, learning slowly and with great difficulty how to find that acceptable.`;
-      } else {
-        p4 = `The first month was quieter than expected and better than feared. Small things returned — the ability to read a book without checking email, the memory that food could be a pleasure rather than fuel, the strange luxury of a Tuesday with nothing required of it.`;
-      }
-
-      const p5 = `${name} did not go back. Some people do — the structure, the identity, the feeling of mattering in a measurable way. ${name} had enough money to discover who they were without the job. It took longer than the money to figure out whether they liked the answer. But they had time now. For the first time in twelve years, they had nothing but time.`;
-
-      return [p1, p2, p3, p4, p5].filter(Boolean).join('\n\n');
-    },
-    epilogue: '',
+  madeMD: {
+    title: 'Managing Director.',
+    colour: '#d4a017',
+    text: (name) => `The letter came on a Thursday. Managing Director, effective the first of the month.\n\n${name} read it twice, set it down, and went back to the deck they were working on. The announcement could wait twenty minutes.\n\nFifteen years. The title had always been there in the distance, the way landmarks look closer than they are. Then one morning it simply wasn't in the distance anymore. It was on a piece of paper. It was a signature. It was theirs.\n\nSweatshaw & Co said nothing had changed, which was technically true and practically meaningless. Everything had changed. The way people walked into meetings. The calls that got returned. The decisions that no longer needed sign-off from anyone in the building.`,
+    epilogue: (_name, sanity) =>
+      sanity > 70 ? 'The title is real. So is the work. Neither of those things are going away. That is, on balance, fine.'
+      : sanity > 40 ? 'Managing Director. The words look right on the door. The hours remain what they were. You\'re working on that.'
+      : 'You made it. You\'re not entirely sure who you are outside of this building. That\'s a question for another year.',
+  },
+  hollowMD: {
+    title: 'Managing Director. (The Desk is Very Clean.)',
+    colour: '#d4a017',
+    text: (name) => `${name} was promoted to Managing Director on a Tuesday.\n\nThe email went to the floor. There were twelve replies. Ten were from direct reports, which is to say, required.\n\nThe office is large. The windows are good. The calendar is, at this point, more of a philosophical position than a scheduling tool.`,
+    epilogue: 'The results were excellent. The results were always excellent. Nobody asks what the results cost anymore. That stopped being a question some years ago.',
   },
   bankruptcy: {
     title: 'The Money Ran Out.',
-    colour: '#374151',
+    colour: '#ef4444',
     isBankruptcy: true,
     text: (name, stats, gs) => {
       const p1 = `The direct debit failed on a Tuesday morning.\n${name} knew before the notification arrived — had known for a few weeks, really, in the way you know things you are not ready to deal with.\nThe letting agent's email was polite. It always is, at first.`;
@@ -616,8 +683,6 @@ export const ENDINGS = {
       const rep = stats?.reputation ?? 0;
       if (rep > 60) {
         p3 = `A former colleague called within the week. There was contract work, if ${name} wanted it. People remembered the good years. That turned out to matter more than expected.`;
-      } else if (rep >= 30) {
-        p3 = `They updated their CV on a Thursday night and sent it to twelve places by midnight. Three replied. One became something. It took a while.`;
       } else {
         p3 = `The industry was smaller than it looked from the inside. ${name} learned this the slow way. They pivoted eventually — something adjacent, something quieter. It was fine. Fine was enough for a while.`;
       }
@@ -626,6 +691,24 @@ export const ENDINGS = {
 
       return [p1, p2, p2b, p3, p4].filter(Boolean).join('\n\n');
     },
-    epilogue: '',
+    epilogue: 'HR sent a survey two weeks later asking how the offboarding experience could be improved.',
+  },
+  startupBust: {
+    title: 'Zero to Zero.',
+    colour: '#8b90b0',
+    text: (name) => `${name} joined the startup with a lot of conviction and a cap table that, in retrospect, should have raised questions.\n\nThe idea wasn't bad. The timing wasn't catastrophic. The execution — somewhere between the pivot and the re-pivot — is where things became difficult to explain at dinner parties.\n\nThey ran out of runway on a Friday. The final all-hands was on a Google Meet. Seventeen people. The CEO said the word "learnings" four times.\n\nBack at a desk that wasn't theirs, in an office that smelled like every other office, ${name} updated a CV that now had an eighteen-month gap labelled "Founder." That turned out to mean more than expected — just not in the way expected.`,
+    epilogue: 'The next job came through a former colleague who said the startup experience showed "initiative." It did, technically.',
+  },
+  startupSuccess: {
+    title: 'Series A.',
+    colour: '#8b90b0',
+    text: (name) => `The timing was right. The team was right. ${name} had spent four years understanding what the market actually needed — not what the pitch deck said it needed.\n\nThe product launched quietly. Then less quietly. Then there was a term sheet on the table from a fund that had previously declined to take a meeting.\n\nThe Series A closed on a Tuesday. ${name} told almost no one. There was too much to do.\n\nSweatshaw & Co sent a LinkedIn congratulations. ${name} liked the post. It seemed like the right thing to do.`,
+    epilogue: 'Series B is in progress. The office has a foosball table nobody uses and a coffee machine that costs more than a monthly salary. The work is the same work. That\'s the point.',
+  },
+  mentalBreakdown: {
+    title: 'Mental Breakdown.',
+    colour: '#ef4444',
+    text: (name) => `The relationship ending was the last straw.\n\n${name} had been running on fumes for longer than they would admit — the kind of tired that sleep doesn't fix, the kind of empty that no deal or promotion reaches. The loss was the crack that let everything else in.\n\nThey called in sick on a Monday. Then Tuesday. By Wednesday, they stopped checking their phone. The out-of-office wasn't set. Nobody set it for two days.\n\nWhen ${name} finally opened their laptop, there was a calendar invite from HR. Subject: "Check-in." The kind of meeting that has a format and a conclusion already drafted before it begins.\n\nThe conversation was careful, measured, humane in the way large institutions are when they have practised it. The word "wellbeing" appeared four times. The phrase "not a fit right now" appeared once.\n\nHR suggested that perhaps it was best, for everyone, if ${name} took some time. There was a leave package. There was a therapist referral. There was a card signed by the team that said nothing specific and everything general.\n\nOutside the building, ${name} stood on the pavement for a long time. The city moved. ${name} didn't.\n\nFor the first time in years, there was nothing to do. No meeting to prepare for. No deck to revise. No number to hit.\n\nJust a question that had been waiting very patiently in the back of every late night and missed anniversary and unanswered message:\n\nWhat was it all for?`,
+    epilogue: 'The therapist had a whiteboard and a calm voice. The answer took longer than expected. The question, it turned out, was worth asking.',
   },
 };
