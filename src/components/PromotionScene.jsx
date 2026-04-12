@@ -26,7 +26,7 @@ const TITLE_LABELS = {
   director:  'Director',
 };
 
-export default function PromotionScene({ newStageId, onDone }) {
+export default function PromotionScene({ newStageId, isPEPath = false, onDone }) {
   const [page,    setPage]    = useState(0);
   const [blink,   setBlink]   = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
@@ -48,15 +48,18 @@ export default function PromotionScene({ newStageId, onDone }) {
 
   return (
     <div className={`ps-screen${fadeOut ? ' ps-fadeout' : ''}`}>
-      <div className="ps-bg" />
+      <div
+        className="ps-bg"
+        style={isPEPath ? { backgroundImage: "url('/pebossoffice.png')" } : undefined}
+      />
       <div className="ps-overlay" />
 
-      <img src="/happyboss.png" className="ps-boss" alt="" />
+      <img src={isPEPath ? '/PEbosshappy.png' : '/happyboss.png'} className="ps-boss" alt="" />
 
       <div className="ps-left-panel">
         <div className="ps-dialogue">
           <div className="ps-tag">PROMOTION — {(TITLE_LABELS[newStageId] ?? newStageId).toUpperCase()}</div>
-          <div className="ps-speaker">Managing Director — Sweatshaw &amp; Co</div>
+          <div className="ps-speaker">{isPEPath ? 'Partner — Darkstone & Partners' : 'Managing Director — Sweatshaw & Co'}</div>
 
           <div className="ps-text">
             {lines.map((line, i) => (

@@ -34,7 +34,6 @@ export default function DateSelection({ gameState: gs, onDateChosen }) {
               key={d.id}
               className={`date-card ${isMilestone ? 'milestone' : ''} ${!canAfford ? 'unaffordable' : ''} ${!qualified ? 'locked' : ''}`}
               onClick={() => onDateChosen(d, !qualified)}
-              disabled={!canAfford}
             >
               <div className="date-card-header">
                 <span className="date-card-name">{d.name}</span>
@@ -54,6 +53,12 @@ export default function DateSelection({ gameState: gs, onDateChosen }) {
               {!qualified && (
                 <div className="date-card-reject-warn">
                   ⚠ Below requirement — risks rejection (Sanity −10)
+                </div>
+              )}
+
+              {!canAfford && (
+                <div className="date-card-reject-warn">
+                  ⚠ Insufficient funds — this will bankrupt you
                 </div>
               )}
 

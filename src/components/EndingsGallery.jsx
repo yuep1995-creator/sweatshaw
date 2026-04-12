@@ -10,7 +10,6 @@ const ENDING_LIST = [
   { id: 'backToFamilyBusiness',   category: 'Legacy' },
   { id: 'fire',                   category: 'Exit' },
   { id: 'regulator',              category: 'Exit' },
-  { id: 'goldenHandcuffs',        category: 'Exit' },
   { id: 'startupSuccess',         category: 'Exit' },
   { id: 'startupBust',            category: 'Exit' },
   { id: 'permanentVP',            category: 'Plateau' },
@@ -35,6 +34,13 @@ const ENDING_IMAGES = {
   bankruptcy:             '/bankruptcy.png',
   permanentVP:            '/vpmax.png',
   headOfInternalStrategy: '/internalstratmax.png',
+  mentalBreakdown:        '/mentalmax.png',
+  madeMD:                 '/madeMDmax.png',
+  hollowMD:               '/hollowmax.png',
+  hollowVictory:          '/hollowpemax.png',
+  madePartner:            '/madepartnermax.png',
+  startupSuccess:         '/startupsuc.png',
+  startupBust:            '/startupbust.png',
 };
 
 const ENDING_AUDIO = {

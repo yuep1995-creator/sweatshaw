@@ -4,7 +4,7 @@ import { getStageInfo, formatDollars, ANNUAL_SALARY_BY_STAGE, getTaxRate } from 
 const STAT_LABELS = { competence: 'Competence', charisma: 'Charisma', reputation: 'Reputation', sanity: 'Sanity', wealth: 'Wealth' };
 
 export default function AnnualReview({ gameState: gs, annualData, onContinue }) {
-  const { year, yearStartStats, endStats, badgesThisYear, promotionResult, wakeUpCall, bonusInfo, salaryMultiplier } = annualData;
+  const { year, yearStartStats, endStats, badgesThisYear, promotionResult, bonusInfo, salaryMultiplier } = annualData;
   const { stage, calendarYear } = getStageInfo(year);
   const managerNote = getManagerNote(endStats, yearStartStats, gs.characterName);
 
@@ -13,8 +13,6 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
   const deltaColour = (v) => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : '#555e80';
   const fmtVal   = (k, v) => k === 'wealth' ? formatDollars(v) : v;
   const fmtDelta = (k, v) => k === 'wealth' ? (v >= 0 ? '+' + formatDollars(v) : '-' + formatDollars(Math.abs(v))) : (v > 0 ? '+' : '') + v;
-
-  const handleWakeUpCall = (option) => onContinue({ wakeUpCallOption: option });
 
   // Annual comp figures
   const stageId    = gs.currentStageId;
@@ -173,48 +171,14 @@ export default function AnnualReview({ gameState: gs, annualData, onContinue }) 
               <p className="ar-promo-flavour">Three years, one step up. The title changes. The 6am emails do not.</p>
             )}
             {promotionResult.type === 'fail' && (
-              <p className="ar-promo-flavour">Sweatshaw &amp; Co has identified a "strategic restructuring opportunity" for your role.</p>
+              <p className="ar-promo-flavour">{gs.isPEPath ? 'Darkstone HR has sent a 15 minute catch-up to your calendar this Friday to discuss "career planning".' : 'Sweatshaw & Co has identified a "strategic restructuring opportunity" for your role.'}</p>
             )}
           </div>
         )}
 
-        {/* Wake-up call: Associate Year 1 special branching event */}
-        {wakeUpCall && (
-          <div className="ar-wakeup">
-            <div className="ar-section-label">PERSONAL DEVELOPMENT NOTE</div>
-            <div className="ar-wakeup-card">
-              <p className="ar-wakeup-text">
-                You've been at {gs.companyName} for four years. A headhunter calls about a Private Equity role. And a former colleague just announced a Series B. $40 million raised. They look annoyingly happy in the photo.
-              </p>
-              <div className="ar-wakeup-choices">
-                <button className="ar-wakeup-btn" onClick={() => onContinue({})}>
-                  <span className="ar-choice-letter">A</span>
-                  Stay at {gs.companyName}. You like it here. Mostly.
-                </button>
-                <button className="ar-wakeup-btn highlight" onClick={() => handleWakeUpCall('pe')}>
-                  <span className="ar-choice-letter">B</span>
-                  Jump to Private Equity → Darkstone & Partners
-                  <span className="ar-wakeup-note">Salary ×1.2, promotion requirements ×1.2</span>
-                </button>
-                <button className="ar-wakeup-btn" onClick={() => onContinue({ wakeUpCallOption: 'startup' })}>
-                  <span className="ar-choice-letter">C</span>
-                  Join a startup.
-                </button>
-                <button className="ar-wakeup-btn" onClick={() => handleWakeUpCall('sabotage')}>
-                  <span className="ar-choice-letter">D</span>
-                  Send headhunter to a rival colleague.
-                  <span className="ar-wakeup-note">Competence +40, Sanity −30</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!wakeUpCall && (
-          <button className="btn btn-primary btn-large ar-continue-btn" onClick={() => onContinue({})}>
-            {promotionResult?.type === 'fail' ? '[ ACCEPT LATERAL ROLE ]' : '[ BEGIN NEW YEAR ]'}
-          </button>
-        )}
+        <button className="btn btn-primary btn-large ar-continue-btn" onClick={() => onContinue({})}>
+          {promotionResult?.type === 'fail' ? '[ ACCEPT LATERAL ROLE ]' : '[ BEGIN NEW YEAR ]'}
+        </button>
       </div>
     </div>
   );

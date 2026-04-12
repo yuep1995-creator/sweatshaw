@@ -118,7 +118,7 @@ export default function QuarterlySummary({ gameState: gs, onContinue }) {
 
   return (
     <div className="qs-screen">
-      <div className="qs-bg" style={{ backgroundImage: 'url(/gsoffice.png)' }} />
+      <div className="qs-bg" style={{ backgroundImage: gs.isPEPath ? 'url(/peoffice.png)' : 'url(/gsoffice.png)' }} />
       <div className="qs-bg-overlay" />
       <div className="qs-card">
         <div className="qs-tag">

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import FirstEncounterScene from './FirstEncounterScene';
 import DateConversationScene from './DateConversationScene';
 import ProposalScene from './ProposalScene';
@@ -11,20 +11,25 @@ import AnnualReview     from './AnnualReview';
 import SpecialEvent     from './SpecialEvent';
 import HousingSelect    from './HousingSelect';
 import BonusSpree       from './BonusSpree';
+import PEIntroScene     from './PEIntroScene';
 import PromotionScene   from './PromotionScene';
 import SleepInScene    from './SleepInScene';
+import MarathonScene   from './MarathonScene';
 import {
   getStageInfo, getQuarterLabel, getSeasonLabel,
   processActivity, clampStats, applyEffects, checkEndings,
   checkPromotion, getNextStage,
   computeYearBadges, pickQuarterlyEvent,
-  shouldFireWakeUpCall, shouldFireLegacyHireEvent,
+  shouldFireLegacyHireEvent,
   mergeDeltas,
   getQuarterlySalary, computeAnnualBonus, formatDollars,
   getQuarterlyRent, getQuarterlyLifestyle, getHousingQuarterlySanityBonus, HOUSING, ANNUAL_SALARY_BY_STAGE,
   getStagePromotionMultiplier,
 } from '../gameEngine';
 import { ACTIVITIES, DATE_OPTIONS, CAREER_STAGES } from '../gameData';
+import { pickQuarterlyItems, PARTNER_GENDER } from '../gameItems';
+import LoganScene from './LoganScene';
+import PersonalDevNote from './PersonalDevNote';
 
 const STAT_COLOURS = {
   competence: '#4f6ef7', charisma: '#a78bfa',
@@ -43,12 +48,13 @@ const INTIMACY_START = {
   emily: 40, david: 40,
   adira: 25, victor: 25, julien: 25,
   marco: 15, anastasia: 15, olivia: 15,
+  logan: 25,
 };
 const HIGH_DECAY_PARTNERS = ['olivia', 'marco', 'anastasia'];
 const PARTNER_NAMES = {
   victor: 'Victor Hughes', marco: 'Marco Moretti', david: 'David Li',
   julien: 'Julien Laurent', adira: 'Adira Sharma', anastasia: 'Anastasia Orlova',
-  olivia: 'Olivia Beaufort', emily: 'Emily Miller',
+  olivia: 'Olivia Beaufort', emily: 'Emily Miller', logan: 'Logan Sterling',
 };
 
 function computeRelationshipUpdates(gs, intimacyDelta) {
@@ -68,6 +74,28 @@ function computeRelationshipUpdates(gs, intimacyDelta) {
     relationshipStatus:   newStatus,
     relationshipEverReachedRelationship: everReached,
   };
+}
+
+const ACTIVE_RELATIONSHIP_STATUSES = ['entangled', 'relationship', 'engaged', 'married'];
+
+function hasActiveRelationship(gs) {
+  return !!(gs.relationshipPartnerId && ACTIVE_RELATIONSHIP_STATUSES.includes(gs.relationshipStatus));
+}
+
+// Resolve any event whose text/choice labels/effects are functions, injecting game state context
+function resolveEvent(event, gs) {
+  if (!event) return event;
+  const resolvedText = typeof event.text === 'function'
+    ? (event.id === 'birthdayDeal'
+        ? event.text(PARTNER_NAMES[gs.relationshipPartnerId] ?? 'your date')
+        : event.text(gs))
+    : event.text;
+  const resolvedChoices = event.choices?.map(choice => ({
+    ...choice,
+    ...(typeof choice.label   === 'function' ? { label:   choice.label(gs)   } : {}),
+    ...(typeof choice.effects === 'function' ? { effects: choice.effects(gs) } : {}),
+  }));
+  return { ...event, text: resolvedText, choices: resolvedChoices ?? event.choices };
 }
 
 // Colour for comp/char/rep bars (0–999 scale)
@@ -156,18 +184,59 @@ function WealthDisplay({ wealth, housingTier, mansionOwned, currentQuarter }) {
   );
 }
 
+const COZY_WEDDING_PARTNERS = ['emily', 'david', 'marco'];
+
+const WEDDING_NARRATIVE = {
+  emily: (name, partner) =>
+    `${name} and ${partner} got married on a Saturday morning at a small venue outside the city. Forty guests. No seating chart disputes — ${name} had built a solver for it the week before and deployed it at 11pm on a Wednesday.\n\nThe vows were genuine. ${name} had written them in a notes app between two calls and a model review, and somehow they were the most honest thing said all year.\n\n${partner} cried. ${name} almost did. The phone stayed in the jacket pocket for the full ceremony, which ${name}'s team would later describe, in a message that arrived during the first dance, as "unprecedented."`,
+  david: (name, partner) =>
+    `${name} and ${partner} had approached the wedding with characteristic rigour. The venue was selected using a weighted scoring model. The seating plan was stress-tested for social compatibility across three scenarios.\n\n${partner} had insisted on flowers. ${name} had agreed immediately and then spent forty minutes researching seasonal availability and margin uplift at florists within a two-mile radius.\n\nThe ceremony itself was efficient and, by all accounts, beautiful. ${name} kept the phone on silent. It buzzed eleven times. ${name} checked it twice, which ${partner} had pre-approved as part of what they referred to, privately, as the wedding SLA.`,
+  marco: (name, partner) =>
+    `${name} and ${partner} got married on a beach in Hampshire on a Sunday in late summer. ${partner} had wanted this for two years. ${name} had agreed in principle eighteen months ago and then spent the intervening time quietly hoping the logistics would sort themselves out.\n\nThey did not sort themselves out. ${name} sorted them out, in six days, between a live deal and a board prep, at a level of execution that several guests described as "professionally impressive" and ${partner} described as "just like you."\n\nThe ceremony was warm and unpolished in the best way. ${name}'s phone was off. ${partner} had asked, and ${name} had said yes without checking the calendar first, which ${partner} later said was the most romantic thing about the whole day.`,
+  victor: (name, partner) =>
+    `${name} and ${partner} got married at a private members' club in Midtown on a Friday evening, because Saturday would have conflicted with a closing dinner and neither of them seriously considered rescheduling the closing dinner.\n\n${name} kept the phone on vibrate throughout the ceremony. By the reception, ${partner} had also checked theirs twice. A Managing Director from ${name}'s floor sent congratulations followed, seventeen seconds later, by a 47-slide deck marked urgent.\n\n${partner} gave a speech that was precise, controlled, and — for those who knew them well — unusually warm. ${name} returned the favour. The room agreed it was an exceptionally well-run event. Three attendees left before dessert to take calls. No one found this unusual.`,
+  julien: (name, partner) =>
+    `${name} and ${partner} were married at a venue in the West Village, chosen for its discretion as much as its aesthetic. The guest list was curated. The flowers were arranged by someone whose name the florist had not been given.\n\n${partner}'s speech was brief, considered, and exactly right. ${name}'s was longer than planned, because ${name} had not, in the end, been able to edit it down to the original draft. ${partner} smiled throughout in a way that suggested they had expected this.\n\nTwo MDs and a client sent messages during the ceremony. ${name} did not check them until the car ride to the reception, at which point ${partner} observed, mildly, that the ceremony was technically still ongoing. ${name} put the phone away. It was the correct call. Both of them knew it.`,
+  adira: (name, partner) =>
+    `${name} and ${partner} had negotiated the wedding the way they negotiated everything: directly, without sentiment, and with a shared acknowledgement that the final terms would be better than the opening positions.\n\n${partner} had wanted a large ceremony. ${name} had wanted a small one. They settled on medium, with an efficient programme and a hard stop at ten. The catering was excellent. The speeches ran over, and both of them timed this privately from opposite sides of the room.\n\n${name} kept the phone on and visible throughout the reception. ${partner} did the same. At one point they were both typing simultaneously at the table, on separate matters, and two guests took a photo. It was, by some margin, the most accurate portrait of the relationship anyone had produced.`,
+  anastasia: (name, partner) =>
+    `${name} and ${partner} were married at a private estate in the Hamptons on a Saturday in late September, a date selected in part because it fell outside earnings season and in part because the light at that hour was, according to ${partner}, exceptional.\n\nThe coverage was extensive. Three publications ran photographs before the ceremony had concluded. ${name}'s phone received 340 notifications between the vows and the first course, which ${name} described to ${partner} as "manageable" and ${partner} described to no one, because ${partner} had already seen it coming.\n\nThe evening was spectacular. ${name} was present for most of it. ${partner} later confirmed, in a tone that permitted no further discussion, that this was enough.`,
+  olivia: (name, partner) =>
+    `${name} and ${partner} were married in a gallery space in the West Village on a Sunday afternoon in April. ${partner} had designed every detail of the event with the same attention brought to a major acquisition. The flowers referenced a Hockney. The lighting had been consulted on.\n\n${name} had contributed the guest list, the caterer, and a speech that ${partner} had read in advance and quietly revised without comment, returning it as "a suggestion." ${name} had used ${partner}'s version in full.\n\nDuring the reception, an MD sent two messages requesting a revised deck by Tuesday. ${name} replied with "congratulations received, deck Tuesday confirmed," which ${partner} read over ${name}'s shoulder and, after a pause, chose not to address. This, too, was a form of understanding.`,
+  logan: (name, partner) =>
+    `${name} and ${partner} were married at a private venue in Tribeca on a Friday evening, which ${partner} had selected on the basis that Friday closings were, as he put it, the most efficient deployment of a weekend. ${name} had agreed. They both had.\n\nThe guest list was competitive-adjacent: former colleagues, a smattering of PE principals, two managing directors who had apparently been waiting to see how this turned out. ${partner} gave a speech that was polished, slightly too short, and almost certainly rehearsed. He delivered it like a pitch, which is to say: it was very good.\n\n${name}'s phone stayed in a jacket pocket until the first dance. ${partner}'s lasted until dessert. The room agreed this was progress.\n\nThere were deal toys on the gift table, alongside a card that read: "Finally closing on something that matters." It was from ${partner}'s analyst. They kept it.`,
+};
+
 function WeddingScene({ gameState: gs, onDone }) {
-  const partnerName = PARTNER_NAMES[gs.relationshipPartnerId] ?? 'your partner';
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const partnerId   = gs.relationshipPartnerId;
+  const partnerName = PARTNER_NAMES[partnerId] ?? 'your partner';
+  const isCozy      = COZY_WEDDING_PARTNERS.includes(partnerId);
+  const bgImage     = isCozy ? '/wedding1.png' : '/wedding2.png';
+  const narrativeFn = WEDDING_NARRATIVE[partnerId] ?? WEDDING_NARRATIVE.emily;
+  const narrative   = narrativeFn(gs.characterName, partnerName);
+  const lines       = narrative.split('\n');
+
   return (
-    <div className="proposal-screen" style={{ backgroundImage: "url('/poshproposal.png')" }}>
-      <div className="proposal-card">
-        <div className="proposal-tag">THIS YEAR</div>
-        <h1 className="proposal-title">You got married. 💐</h1>
-        <p className="proposal-body">
-          {gs.characterName} and {partnerName} exchanged vows in a ceremony that felt both inevitable and slightly surreal.
-          The speeches were too long. The food was excellent. Afterwards, you both agreed it was the best decision you've ever made that didn't involve a spreadsheet.
-        </p>
-        <button className="btn btn-primary btn-large" onClick={onDone}>[ CONTINUE ]</button>
+    <div className="proposal-screen" style={{ backgroundImage: `url('${bgImage}')` }}>
+      <div className="proposal-overlay" style={{ opacity: revealed ? 1 : 0 }} />
+      <div
+        className="proposal-card"
+        style={{ opacity: revealed ? 1 : 0, transform: revealed ? 'translateY(0)' : 'translateY(16px)' }}
+      >
+        <div className="proposal-tag">THE WEDDING</div>
+        <div className="proposal-text">
+          {lines.map((line, i) =>
+            line === '' ? <br key={i} /> : <p key={i} className="proposal-para">{line}</p>
+          )}
+        </div>
+        <button className="btn btn-primary btn-large proposal-btn" onClick={onDone}>[ CONTINUE ]</button>
       </div>
     </div>
   );
@@ -233,24 +302,27 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   // ── FIRST ENCOUNTER ───────────────────────────────────────────────────────
   const resolveFirstEncounterId = (stats, characterId) => {
+    // Legacy hire override — maxed familyBackground always gets the prestige date
+    if (gs.isRichLegacy) {
+      return characterId === 'paige' ? 'julien' : 'anastasia';
+    }
+
     const c = stats.competence || 0;
     const h = stats.charisma   || 0;
     const r = stats.reputation || 0;
     const w = stats.wealth     || 0;
 
     if (characterId === 'max') {
-      const top = Math.max(c, h, r);
-      if (top === c && c > 150)                    return 'adira';
-      if (top === h && h > 150 && w > 10_000)      return 'anastasia';
-      if (top === r && r > 175)                    return 'olivia';
+      if (r > 125)                return 'olivia';
+      if (c > 150 && r <= 125)    return 'adira';
+      if (h > 125 && w > 10_000)  return 'anastasia';
       return 'emily';
     }
 
     // Paige — checked in priority order; marco is the fallback
-    const m = Math.max(c, h, r);
-    if (m === c)              return 'victor';
-    if (m === h && c > 150)   return 'julien';
-    if (m === r)              return 'david';
+    if (h > 130 && c > 150)   return 'julien';
+    if (c > 150)              return 'victor';
+    if (r > 130)              return 'david';
     return 'marco';
   };
 
@@ -285,6 +357,10 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   const handleSleepInSceneDone = () => {
     update({ subScreen: gs.pendingSleepNext || 'quarterlyEvent', pendingSleepNext: null });
+  };
+
+  const handleMarathonSceneDone = () => {
+    update({ subScreen: gs.pendingAfterMarathon || 'quarterlyEvent', pendingAfterMarathon: null });
   };
 
   // ── DATE CHOSEN ──────────────────────────────────────────────────────────
@@ -352,6 +428,26 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     // --- Clamp stats
     let finalStats = clampStats(rawStats);
 
+    // --- Grit boost from NYC Marathon (trait change, not a stat)
+    let newBaseTraits = gs.baseTraits;
+    let newTraitMultipliers = gs.traitMultipliers || {};
+    let newMarathonGritGained = gs.marathonGritGained || 0;
+    if (activityDef.id === 'nycMarathon' && (activityDef.gritGain || 0) > 0) {
+      const currentGained = gs.marathonGritGained || 0;
+      const currentGrit   = gs.baseTraits?.grit || 0;
+      if (currentGained < 30 && currentGrit < 100) {
+        const gain = Math.min(activityDef.gritGain, 30 - currentGained, 100 - currentGrit);
+        if (gain > 0) {
+          const newGrit = currentGrit + gain;
+          newBaseTraits = { ...gs.baseTraits, grit: newGrit };
+          newMarathonGritGained = currentGained + gain;
+          if (!gs.isRichLegacy) {
+            newTraitMultipliers = { ...gs.traitMultipliers, sanityLossReduction: (newGrit - 10) / 200 };
+          }
+        }
+      }
+    }
+
     // --- Date effects
     let dateEffects = null;
     let dateFlavour = null;
@@ -363,7 +459,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       dateCost = dateDef.dateCost || 0;
       finalStats.wealth = (finalStats.wealth || 0) - dateCost;
 
-      const dateEffs = { ...dateDef.effects };
+      const isEngagedOrMarried = ['engaged', 'married'].includes(gs.relationshipStatus);
+      const engagedMult = isEngagedOrMarried ? 2 : 1;
+      const baseEffects = isEngagedOrMarried && dateDef.engagedEffects
+        ? dateDef.engagedEffects
+        : Object.fromEntries(Object.entries(dateDef.effects).map(([k, v]) => [k, v * engagedMult]));
+      const dateEffs = { ...baseEffects };
       // Dates are social activities — apply social charisma boost
       if (dateEffs.charisma > 0) {
         dateEffs.charisma = Math.round(dateEffs.charisma * ((m.charismaMultiplierLooks || 1) + 0.5));
@@ -413,6 +514,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     }
 
     const totalChanges = mergeDeltas(actEffects, dateEffects || {});
+    const newQSD = mergeDeltas(gs.quarterlyStatDelta || {}, totalChanges);
     const sanityDropped = gs.sanityDroppedBelow25 || finalStats.sanity < 25;
 
     const newLog = [...gs.activityLog, {
@@ -442,18 +544,36 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         sideProjectMonths: newSPMonths,
         quarterlyExpensesLog: newExpensesLog,
         lastStatChanges: { changes: totalChanges, riskMessage, dateFlavour },
+        quarterlyStatDelta: newQSD,
         pendingDateForMonth: null,
         sleepInChosenThisQuarter: newSleepInChosen,
+        baseTraits: newBaseTraits,
+        traitMultipliers: newTraitMultipliers,
+        marathonGritGained: newMarathonGritGained,
         subScreen: 'monthPicker',
         ...relUpdates,
       });
     } else {
+      // Quarter over — bankruptcy if date cost pushed wealth negative
+      if (finalStats.wealth < 0) {
+        update({ stats: { ...finalStats, wealth: 0 } });
+        onEnding(gs.isRichLegacy ? 'backToFamilyBusiness' : 'bankruptcy');
+        return;
+      }
+
       // Quarter over — check Mummy's Help, then quarterly event
       const showMummysHelp =
         gs.isRichLegacy &&
         finalStats.wealth < 10_000 &&
         gs.mummysHelpCount < 3 &&
         !gs.pendingMummysHelp;
+
+      // Marathon scene injection: if marathon was chosen in Q3, fire marathonScene first
+      const marathonChosen = gs.currentQuarter === 3 && newMonthActivities.includes('nycMarathon');
+      const withMarathon = (obj) => {
+        if (!marathonChosen) return obj;
+        return { ...obj, pendingAfterMarathon: obj.subScreen, subScreen: 'marathonScene' };
+      };
 
       const baseUpdate = {
         stats: finalStats,
@@ -466,8 +586,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         sideProjectMonths: newSPMonths,
         quarterlyExpensesLog: newExpensesLog,
         lastStatChanges: { changes: totalChanges, riskMessage, dateFlavour },
+        quarterlyStatDelta: newQSD,
         pendingDateForMonth: null,
         sleepInChosenThisQuarter: false,
+        baseTraits: newBaseTraits,
+        traitMultipliers: newTraitMultipliers,
+        marathonGritGained: newMarathonGritGained,
         ...relUpdates,
       };
 
@@ -478,42 +602,42 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         const intendedSubScreen = newSleepInChosen ? 'sleepInScene' : 'specialEvent';
         const pendingSleep      = newSleepInChosen ? 'specialEvent' : null;
         if (hadDateThisQuarter && gs.firstEncounterId) {
-          update({
+          update(withMarathon({
             ...baseUpdate,
             specialEventType: 'mummysHelp',
             pendingSleepNext: pendingSleep,
             pendingAfterDate: { subScreen: intendedSubScreen, specialEventType: 'mummysHelp', pendingSleepNext: pendingSleep },
             subScreen: 'dateConversation',
-          });
+          }));
         } else {
-          update({
+          update(withMarathon({
             ...baseUpdate,
             specialEventType: 'mummysHelp',
             ...(newSleepInChosen
               ? { pendingSleepNext: 'specialEvent', subScreen: 'sleepInScene' }
               : { subScreen: 'specialEvent' }),
-          });
+          }));
         }
       } else {
-        const event = pickQuarterlyEvent(gs.currentYear, gs.currentQuarter, gs.currentStageId);
+        const event = resolveEvent(pickQuarterlyEvent(gs.currentYear, gs.currentQuarter, gs.currentStageId, hasActiveRelationship(gs), gs.activityLog.some(a => a.year === gs.currentYear && a.quarter === gs.currentQuarter && a.activityId === 'therapy'), gs.seenOnceEvents || [], gs.urgentClientOption1Chosen && !(gs.seenOnceEvents || []).includes('headhunterFollowUp') && (gs.currentYear * 4 + gs.currentQuarter) >= ((gs.urgentClientChosenYear || 0) * 4 + (gs.urgentClientChosenQuarter || 0) + 2), { loganDismissed: gs.loganDismissed || false, isPEPath: gs.isPEPath || false }), gs);
         const intendedSubScreen = newSleepInChosen ? 'sleepInScene' : 'quarterlyEvent';
         const pendingSleep      = newSleepInChosen ? 'quarterlyEvent' : null;
         if (hadDateThisQuarter && gs.firstEncounterId) {
-          update({
+          update(withMarathon({
             ...baseUpdate,
             currentEvent: event,
             pendingSleepNext: pendingSleep,
             pendingAfterDate: { subScreen: intendedSubScreen, currentEvent: event, pendingSleepNext: pendingSleep },
             subScreen: 'dateConversation',
-          });
+          }));
         } else {
-          update({
+          update(withMarathon({
             ...baseUpdate,
             currentEvent: event,
             ...(newSleepInChosen
               ? { pendingSleepNext: 'quarterlyEvent', subScreen: 'sleepInScene' }
               : { subScreen: 'quarterlyEvent' }),
-          });
+          }));
         }
       }
     }
@@ -533,9 +657,19 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   // ── QUARTERLY EVENT CHOICE ────────────────────────────────────────────────
   const handleEventChoice = (choice) => {
+    // Corp Dev accept — skip normal flow and trigger ending immediately
+    if (choice.isCorpDevAccept) {
+      onEnding('headOfCorpDev');
+      return;
+    }
+
     const m = gs.traitMultipliers || {};
     let finalStats = { ...gs.stats };
     const effects = { ...choice.effects };
+
+    // Extract intimacyDelta before applying stat effects — it's not a stat
+    const intimacyDelta = effects.intimacyDelta || 0;
+    delete effects.intimacyDelta;
 
     // Apply trait multipliers to event effects
     if (effects.competence > 0) effects.competence = Math.round(effects.competence * (m.competenceMultiplier || 1));
@@ -552,7 +686,8 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       newExpensesLog.push({ label: choice.label, amount: Math.abs(effects.wealth) });
     }
 
-    let eventDChoiceCount = gs.eventDChoiceCount + (choice.isD ? 1 : 0);
+    let eventDChoiceCount          = gs.eventDChoiceCount + (choice.isD ? 1 : 0);
+    let cultureDefyingChoiceCount  = (gs.cultureDefyingChoiceCount || 0) + (choice.isCultureDefying ? 1 : 0);
     const sanityDropped   = gs.sanityDroppedBelow25 || finalStats.sanity < 25;
 
     // ─── Compute quarterly salary ──────────────────────────────────────────
@@ -605,15 +740,138 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       mustRepayMumRepaid:  gs.currentQuarter === 4 && gs.mustRepayMum,
     };
 
-    update({
+    const relationshipUpdates = intimacyDelta !== 0 ? computeRelationshipUpdates(gs, intimacyDelta) : {};
+
+    // Track once-only events as seen
+    const currentEventId = gs.currentEvent?.id;
+    const isOnceOnly = gs.currentEvent?.onceOnly || gs.currentEvent?.headhunterFollowUpOnly;
+    const seenOnceUpdates = isOnceOnly && currentEventId
+      ? { seenOnceEvents: [...(gs.seenOnceEvents || []), currentEventId] }
+      : {};
+
+    // Track urgent client option 1 chosen (fires headhunter follow-up 2 quarters later)
+    const urgentClientUpdates = choice.isUrgentClientOption1
+      ? { urgentClientOption1Chosen: true, urgentClientChosenYear: gs.currentYear, urgentClientChosenQuarter: gs.currentQuarter }
+      : {};
+
+    const fullQuarterDelta = mergeDeltas(gs.quarterlyStatDelta || {}, effects);
+
+    const commonUpdate = {
       stats: finalStats,
       eventDChoiceCount,
+      cultureDefyingChoiceCount,
       sanityDroppedBelow25: sanityDropped,
-      lastStatChanges: { changes: effects, riskMessage: null, dateFlavour: null },
+      lastStatChanges: { changes: fullQuarterDelta, riskMessage: null, dateFlavour: null },
+      quarterlyStatDelta: fullQuarterDelta,
       salarySummary,
       quarterlyExpensesLog: newExpensesLog,
       mustRepayMum: gs.currentQuarter === 4 && gs.mustRepayMum ? false : gs.mustRepayMum,
-      subScreen: 'quarterlySummary',
+      ...relationshipUpdates,
+      ...seenOnceUpdates,
+      ...urgentClientUpdates,
+    };
+
+    // After the quarterly event, check if the Logan scene should fire next
+    const loganFires = gs.currentQuarter === 4
+      && gs.currentYear >= 1 && gs.currentYear <= 5
+      && !gs.loganDismissed
+      && !gs.isPEPath;
+
+    update({ ...commonUpdate, subScreen: loganFires ? 'loganScene' : 'quarterlySummary' });
+  };
+
+  // ── LOGAN SCENE DONE ─────────────────────────────────────────────────────
+  const handleLoganDone = (choice) => {
+    // choice is null for Y1/Y4 (narrative only); a choice object for Y2, Y3, Y5
+
+    if (!choice) {
+      // Y1–Y4: nothing to resolve
+      update({ subScreen: 'quarterlySummary' });
+      return;
+    }
+
+    const m = gs.traitMultipliers || {};
+    const raw = { ...choice.effects };
+    if (raw.competence > 0) raw.competence = Math.round(raw.competence * (m.competenceMultiplier || 1));
+    if (raw.sanity    < 0) raw.sanity      = Math.round(raw.sanity * (1 - (m.sanityLossReduction || 0)));
+    if (raw.charisma  > 0) raw.charisma    = Math.round(raw.charisma * (m.charismaMultiplierLooks || 1));
+
+    let newStats = { ...gs.stats };
+    Object.entries(raw).forEach(([k, v]) => { newStats[k] = (newStats[k] || 0) + v; });
+    newStats = clampStats(newStats);
+
+    if (choice.isLoganY2 || choice.isLoganY3) {
+      // Y2/Y3 choices — just apply stats, keep Logan active for future years
+      update({ stats: newStats, subScreen: 'quarterlySummary' });
+      return;
+    }
+
+    if (choice.isLoganY5Accept) {
+      if (hasActiveRelationship(gs)) {
+        const beType = gs.relationshipStatus === 'married' ? 'divorce'
+          : ['relationship', 'engaged'].includes(gs.relationshipStatus) ? 'breakup' : 'ghosted';
+        update({ stats: newStats, loganDismissed: true, breakupEventType: beType, pendingAfterBreakup: 'quarterlySummary', subScreen: 'breakupScene' });
+      } else if (gs.stats.charisma > 250) {
+        update({ stats: newStats, relationshipPartnerId: 'logan', relationshipStatus: 'entangled', relationshipIntimacy: INTIMACY_START.logan, firstEncounterId: 'logan', dateUnlocked: true, subScreen: 'quarterlySummary' });
+      } else {
+        // Low charisma — Logan ghosts after the night
+        update({ stats: newStats, loganDismissed: true, subScreen: 'quarterlySummary' });
+      }
+      return;
+    }
+
+    // Decline or laugh — dismiss Logan, apply charisma/sanity boost
+    update({ stats: newStats, loganDismissed: true, subScreen: 'quarterlySummary' });
+  };
+
+  // ── PERSONAL DEV NOTE DONE ───────────────────────────────────────────────
+  const handlePersonalDevNoteDone = (option) => {
+    if (option === 'startup') {
+      const endingId = gs.baseTraits.streetSmart < 39 && gs.stats.competence < 400
+        ? 'startupBust' : 'startupSuccess';
+      onEnding(endingId);
+      return;
+    }
+
+    if (option === 'sabotage') {
+      const rawStats   = applyEffects(gs.stats, { competence: 40, sanity: -30 }, gs.traitMultipliers, gs.currentYear);
+      const finalStats = clampStats(rawStats);
+      update({
+        stats: finalStats,
+        pendingAfterPersonalDevNote: null,
+        subScreen: gs.pendingAfterPersonalDevNote || 'monthPicker',
+      });
+      return;
+    }
+
+    if (option === 'pe') {
+      const peItems = pickQuarterlyItems(gs.currentStageId);
+      update({
+        companyName:                'Darkstone & Partners',
+        isPEPath:                   true,
+        salaryMultiplier:           1.2,
+        promoReqMultiplier:         1.1,
+        currentYear:                gs.currentYear + 1,
+        currentQuarter:             1,
+        currentMonth:               1,
+        monthActivities:            [],
+        yearStartStats:             { ...gs.stats },
+        quarterEndSanities:         [],
+        sanityDroppedBelow25:       false,
+        annualData:                 null,
+        quarterlyStatDelta:         {},
+        quarterlyItems:             peItems,
+        itemPurchasedThisQuarter:   false,
+        pendingAfterPersonalDevNote: null,
+        subScreen:                  'peIntro',
+      });
+      return;
+    }
+
+    // Stay: proceed normally to Q4
+    update({
+      pendingAfterPersonalDevNote: null,
+      subScreen: gs.pendingAfterPersonalDevNote || 'monthPicker',
     });
   };
 
@@ -634,7 +892,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     if (gs.weekendThisQuarter) consec++;
     else consec = 0;
 
-    const newLowSanityQ = quarterEndSanity < 50 ? (gs.lowSanityQuarters || 0) + 1 : 0;
+    const newLowSanityQ = quarterEndSanity < 40 ? (gs.lowSanityQuarters || 0) + 1 : 0;
 
     // ── Relationship: quarterly intimacy decay ────────────────────────────
     const decayAmount = HIGH_DECAY_PARTNERS.includes(gs.relationshipPartnerId) ? -7 : -5;
@@ -658,12 +916,14 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     const effectiveDecayUpdates = breakupEventType ? {} : decayUpdates;
 
     // ── Proposal check (Years 5-7, any quarter) ─────────────────────────
+    const cozyPartner       = ['emily', 'david', 'marco'].includes(gs.relationshipPartnerId);
+    const proposalWealthMin = cozyPartner ? 175_000 : 250_000;
     const canPropose =
       !breakupEventType &&
       !gs.proposalTriggered &&
       (decayUpdates.relationshipStatus ?? gs.relationshipStatus) === 'relationship' &&
       gs.relationshipIntimacy > 100 &&
-      gs.stats.wealth > 250_000 &&
+      gs.stats.wealth > proposalWealthMin &&
       [5, 6, 7].includes(gs.currentYear);
 
     if (gs.currentQuarter === 4) {
@@ -680,7 +940,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
       if (newWealth < 0) {
         update({ stats: { ...gs.stats, wealth: 0 } });
-        onEnding('bankruptcy');
+        onEnding(gs.isRichLegacy ? 'backToFamilyBusiness' : 'bankruptcy');
         return;
       }
 
@@ -706,8 +966,23 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
           ? 'weddingScene'
           : needsEncounter ? 'firstEncounter' : nextSubScreen;
 
-      const effectiveNextSub = breakupEventType ? 'breakupScene' : normalNextSub;
-      const afterBreakup = breakupEventType ? normalNextSub : null;
+      // Early ghosted: Y2 Q3, encounter done but player never went on a date
+      const earlyGhostedFired =
+        gs.currentYear === 2 && gs.currentQuarter === 3 &&
+        !!gs.firstEncounterId && !gs.relationshipPartnerId &&
+        !gs.activityLog.some(a => a.year === 2 && a.activityId === 'goOnDate');
+
+      const effectiveBreakupType = earlyGhostedFired ? 'earlyGhosted' : breakupEventType;
+      const baseNextSub  = effectiveBreakupType ? 'breakupScene' : normalNextSub;
+      const afterBreakup = effectiveBreakupType ? normalNextSub : null;
+
+      // Personal Dev Note fires after Q3 of Year 4 (first Associate year), before Q4
+      const firePersonalDevNote = gs.currentYear === 4 && gs.currentQuarter === 3 && !effectiveBreakupType;
+      const effectiveNextSub       = firePersonalDevNote ? 'personalDevNote' : baseNextSub;
+      const pendingAfterPersonalDev = firePersonalDevNote ? baseNextSub : null;
+
+      const nextStageId     = gs.currentStageId; // stage doesn't change mid-year
+      const newQuarterItems = pickQuarterlyItems(nextStageId);
 
       update({
         stats: { ...gs.stats, wealth: newWealth },
@@ -723,15 +998,20 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         quarterStartWealth: gs.stats.wealth,
         quarterlyRentPaid: rent,
         quarterlyExpensesLog: [],
+        quarterlyStatDelta: {},
         pendingMummysHelp: triggerMummy ? true : gs.pendingMummysHelp,
         sleepInChosenThisQuarter: false,
+        quarterlyItems: newQuarterItems,
+        itemPurchasedThisQuarter: false,
         subScreen:                   effectiveNextSub,
         specialEventType:            (!canPropose && !weddingFires && needsEncounter) ? null : nextEventType,
         pendingFirstEncounterId:     encounterId,
         pendingNextSubScreen:        (canPropose || weddingFires) ? (needsEncounter ? 'firstEncounter' : nextSubScreen) : (needsEncounter ? nextSubScreen : null),
         pendingNextSpecialEventType: needsEncounter ? nextEventType : null,
-        breakupEventType:            breakupEventType || null,
-        pendingAfterBreakup:         afterBreakup,
+        breakupEventType:             effectiveBreakupType || null,
+        pendingAfterBreakup:          afterBreakup,
+        pendingAfterPersonalDevNote:  pendingAfterPersonalDev,
+        ...(earlyGhostedFired ? { relationshipPartnerId: gs.firstEncounterId } : {}),
         ...effectiveDecayUpdates,
       });
     }
@@ -739,10 +1019,8 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   // ── PROPOSAL SCENE DONE ──────────────────────────────────────────────────
   const handleProposalDone = () => {
-    const isMax       = gs.characterId === 'max' || gs.characterId !== 'paige';
-    const ringCost    = isMax ? 30_000 : 0;
-    const depositCost = isMax ? 120_000 : 150_000;
-    const totalCost   = ringCost + depositCost;
+    const cozyPartner = ['emily', 'david', 'marco'].includes(gs.relationshipPartnerId);
+    const totalCost   = cozyPartner ? 80_000 : 150_000;
     const weddingYr   = gs.currentYear + 1;
     const housingNeedsUpgrade = ['studio', 'oneBed'].includes(gs.housingTier);
     const pendingSubScreen = gs.pendingNextSubScreen || 'monthPicker';
@@ -769,7 +1047,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
   };
 
   // ── BREAKUP SCENE DONE ───────────────────────────────────────────────────
-  const BREAKUP_SANITY_PENALTY = { ghosted: 25, breakup: 50, quietSeparation: 50, divorce: 75 };
+  const BREAKUP_SANITY_PENALTY = { ghosted: 25, breakup: 50, quietSeparation: 50, divorce: 75, earlyGhosted: 15 };
 
   const handleBreakupDone = () => {
     const penalty    = BREAKUP_SANITY_PENALTY[gs.breakupEventType] ?? 50;
@@ -786,9 +1064,14 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       pendingAfterBreakup:                 null,
     };
 
+    const earlyGhosted = gs.breakupEventType === 'earlyGhosted';
+    const extraReset = earlyGhosted
+      ? { firstEncounterId: null, dateUnlocked: false }
+      : {};
+
     if (newSanity <= 0) {
-      update({ stats: { ...gs.stats, sanity: 0 }, ...resetRel });
-      onEnding('mentalBreakdown');
+      update({ stats: { ...gs.stats, sanity: 0 }, ...resetRel, ...extraReset });
+      onEnding(gs.isRichLegacy ? 'backToFamilyBusiness' : 'mentalBreakdown');
       return;
     }
 
@@ -796,7 +1079,43 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     update({
       stats: { ...gs.stats, sanity: newSanity },
       ...resetRel,
+      ...extraReset,
       subScreen: pendingSub,
+    });
+  };
+
+  // ── ITEM PURCHASE ────────────────────────────────────────────────────────
+  const handleItemPurchase = (item, choice) => {
+    // choice: 'use' (keep for self) or 'gift' (give to active date)
+    const newWealth = gs.stats.wealth - item.cost;
+    if (newWealth < 0) return; // shouldn't happen, UI blocks it
+
+    let statDeltas = {};
+    let intimacyDelta = 0;
+
+    if (choice === 'gift' && item.giftEffects) {
+      intimacyDelta = item.giftEffects.intimacy ?? 0;
+    } else if (choice === 'use' && item.selfEffects) {
+      statDeltas = { ...item.selfEffects };
+    }
+
+    const newStats = clampStats({
+      ...gs.stats,
+      wealth:     newWealth,
+      competence: (gs.stats.competence  || 0) + (statDeltas.competence  || 0),
+      charisma:   (gs.stats.charisma    || 0) + (statDeltas.charisma    || 0),
+      reputation: (gs.stats.reputation  || 0) + (statDeltas.reputation  || 0),
+      sanity:     (gs.stats.sanity      || 0) + (statDeltas.sanity      || 0),
+    });
+
+    const newIntimacy = intimacyDelta > 0
+      ? Math.min(200, (gs.relationshipIntimacy || 0) + intimacyDelta)
+      : gs.relationshipIntimacy;
+
+    update({
+      stats: newStats,
+      itemPurchasedThisQuarter: true,
+      ...(intimacyDelta > 0 ? { relationshipIntimacy: newIntimacy } : {}),
     });
   };
 
@@ -823,7 +1142,6 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
     const promotionResult = checkPromotion(gs.stats, gs.currentYear, gs.promoReqMultiplier || 1);
 
-    const wakeUpCall = shouldFireWakeUpCall(gs.currentYear, 4);
     const bonusInfo  = gs.salarySummary?.bonusInfo ?? null;
 
     update({
@@ -839,7 +1157,6 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         endStats: { ...gs.stats },
         badgesThisYear,
         promotionResult,
-        wakeUpCall,
         bonusInfo,
         salaryMultiplier: gs.salaryMultiplier || 1,
       },
@@ -859,71 +1176,26 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     let legacyPromotionCount = gs.legacyPromotionCount;
     let titlesEarned         = [...gs.titlesEarned];
 
-    if (gs.annualData.wakeUpCall && choice?.wakeUpCallOption === 'startup') {
-      const streetSmart  = gs.baseTraits.streetSmart;
-      const competence   = gs.stats.competence;
-      const endingId     = streetSmart > 39 && competence > 499 ? 'startupSuccess' : 'startupBust';
-      onEnding(endingId);
-      return;
-    }
-
-    if (gs.annualData.wakeUpCall && choice?.wakeUpCallOption === 'sabotage') {
-      const rawStats = applyEffects(gs.stats, { competence: 40, sanity: -30 }, gs.traitMultipliers, gs.currentYear);
-      const finalStats = clampStats(rawStats);
-      update({
-        stats: finalStats,
-        currentYear: gs.currentYear + 1,
-        currentQuarter: 1,
-        currentMonth: 1,
-        monthActivities: [],
-        yearStartStats: { ...finalStats },
-        quarterEndSanities: [],
-        sanityDroppedBelow25: false,
-        annualData: null,
-        subScreen: 'bonusSpree',
-      });
-      return;
-    }
-
-    if (gs.annualData.wakeUpCall && choice?.wakeUpCallOption === 'pe') {
-      update({
-        companyName:        'Darkstone & Partners',
-        isPEPath:           true,
-        salaryMultiplier:   1.2,
-        promoReqMultiplier: 1.2,
-        currentYear: gs.currentYear + 1,
-        currentQuarter: 1,
-        currentMonth: 1,
-        monthActivities: [],
-        yearStartStats: { ...gs.stats },
-        quarterEndSanities: [],
-        sanityDroppedBelow25: false,
-        annualData: null,
-        subScreen: 'bonusSpree',
-      });
-      return;
-    }
-
     if (promotionResult) {
       if (promotionResult.type === 'fail') {
         if (gs.isRichLegacy) {
           onEnding('backToFamilyBusiness');
-        } else if (gs.currentStageId === 'analyst' || gs.currentStageId === 'associate') {
+        } else if (gs.currentStageId === 'analyst') {
           onEnding('upOrOut');
+        } else if (gs.currentStageId === 'associate') {
+          const isFO = (gs.baseTraits?.familyBackground ?? 0) > 49;
+          onEnding(isFO ? 'friendsFO' : 'upOrOut');
         } else if (gs.currentStageId === 'vp') {
-          onEnding('permanentVP');
+          const isFO = (gs.baseTraits?.familyBackground ?? 0) > 49;
+          onEnding(isFO ? 'friendsFO' : 'permanentVP');
         } else {
-          onEnding('headOfInternalStrategy');
+          const isProfCoach = gs.stats.reputation > 700 && (gs.baseTraits?.streetSmart ?? 0) > 30;
+          onEnding(isProfCoach ? 'professionalCoach' : 'headOfInternalStrategy');
         }
         return;
       }
       if (promotionResult.type === 'accelerated' || promotionResult.type === 'standard') {
         if (gs.isLegacyHire) legacyPromotionCount++;
-        if (gs.annualData.wakeUpCall && gs.currentStageId === 'director') {
-          const lowRep = gs.stats.reputation < 120;
-          onEnding(gs.isPEPath ? (lowRep ? 'hollowVictory' : 'madePartner') : (lowRep ? 'hollowMD' : 'madeMD'));
-          return;
-        }
         const next = getNextStage(gs.currentStageId);
         if (next) {
           newStageId = next.id;
@@ -932,8 +1204,10 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
             update({ allBadgesEarned: [...new Set([...gs.allBadgesEarned, 'overachiever'])] });
           }
         } else if (gs.currentStageId === 'director') {
-          const lowRep = gs.stats.reputation < 120;
-          onEnding(gs.isPEPath ? (lowRep ? 'hollowVictory' : 'madePartner') : (lowRep ? 'hollowMD' : 'madeMD'));
+          const isMarried = gs.relationshipStatus === 'married';
+          const isKing = isMarried && gs.stats.competence > 900 && gs.stats.reputation > 900 && gs.stats.charisma > 900;
+          if (isKing) { onEnding('kingOfWallStreet'); return; }
+          onEnding(gs.isPEPath ? (isMarried ? 'madePartner' : 'hollowVictory') : (isMarried ? 'madeMD' : 'hollowMD'));
           return;
         }
       }
@@ -948,6 +1222,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       ? (gs.yearTwoDateChosen || false)
       : gs.dateUnlocked;
 
+    const newYearItems = pickQuarterlyItems(newStageId);
     update({
       currentYear: gs.currentYear + 1,
       currentQuarter: 1,
@@ -962,6 +1237,9 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       annualData: null,
       dateUnlocked: newDateUnlocked,
       yearTwoDateChosen: false,
+      quarterlyStatDelta: {},
+      quarterlyItems: newYearItems,
+      itemPurchasedThisQuarter: false,
       subScreen: wasPromoted ? 'promotionScene' : 'bonusSpree',
     });
   };
@@ -989,7 +1267,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
     if (newWealth < 0) {
       update({ stats: { ...gs.stats, wealth: 0 }, housingTier: tier, mansionOwned });
-      onEnding('bankruptcy');
+      onEnding(gs.isRichLegacy ? 'backToFamilyBusiness' : 'bankruptcy');
       return;
     }
 
@@ -1003,6 +1281,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       quarterStartWealth: gs.stats.wealth,
       quarterlyRentPaid: rent,
       quarterlyExpensesLog: [],
+      quarterlyStatDelta: {},
       pendingMummysHelp: triggerMummy ? true : gs.pendingMummysHelp,
       subScreen: 'monthPicker',
     });
@@ -1031,7 +1310,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     const isMummy = gs.specialEventType === 'mummysHelp';
 
     if (isMummy) {
-      const event = pickQuarterlyEvent(gs.currentYear, gs.currentQuarter, gs.currentStageId);
+      const event = resolveEvent(pickQuarterlyEvent(gs.currentYear, gs.currentQuarter, gs.currentStageId, hasActiveRelationship(gs), gs.activityLog.some(a => a.year === gs.currentYear && a.quarter === gs.currentQuarter && a.activityId === 'therapy'), gs.seenOnceEvents || [], gs.urgentClientOption1Chosen && !(gs.seenOnceEvents || []).includes('headhunterFollowUp') && (gs.currentYear * 4 + gs.currentQuarter) >= ((gs.urgentClientChosenYear || 0) * 4 + (gs.urgentClientChosenQuarter || 0) + 2)), gs);
       update({
         stats: newStats,
         mummysHelpCount: gs.mummysHelpCount + 1,
@@ -1059,7 +1338,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
   const criticalBalance = nextQRent > 0 && (gs.stats.wealth + quarterlySalaryNet) < nextQRent;
 
   return (
-    <div className="gs-layout">
+    <div className="gs-layout" style={gs.isPEPath ? { backgroundImage: "url('/peoffice.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' } : undefined}>
       {/* ── HEADER ──────────────────────────────────────────────────── */}
       <header className="gs-header">
         <div className="gs-header-left">
@@ -1169,7 +1448,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         {/* Main */}
         <main className="gs-main">
           {gs.subScreen === 'monthPicker' && (
-            <MonthlyPicker gameState={gs} onActivityChosen={handleActivityChosen} />
+            <MonthlyPicker gameState={gs} onActivityChosen={handleActivityChosen} onItemPurchase={handleItemPurchase} />
           )}
           {gs.subScreen === 'dateSelect' && (
             <DateSelection gameState={gs} onDateChosen={handleDateChosen} />
@@ -1180,11 +1459,19 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
               stats={gs.stats}
               characterId={gs.characterId}
               isPEPath={gs.isPEPath}
+              housingTier={gs.housingTier}
+              currentStageId={gs.currentStageId}
               onChoice={handleEventChoice}
             />
           )}
+          {gs.subScreen === 'loganScene' && (
+            <LoganScene gameState={gs} onDone={handleLoganDone} />
+          )}
           {gs.subScreen === 'quarterlySummary' && (
             <QuarterlySummary gameState={gs} onContinue={handleSummaryDone} />
+          )}
+          {gs.subScreen === 'personalDevNote' && (
+            <PersonalDevNote gameState={gs} onChoice={handlePersonalDevNoteDone} />
           )}
           {gs.subScreen === 'annualReview' && gs.annualData && (
             <AnnualReview
@@ -1194,10 +1481,16 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
             />
           )}
           {gs.subScreen === 'promotionScene' && (
-            <PromotionScene newStageId={gs.currentStageId} onDone={handlePromotionSceneDone} />
+            <PromotionScene newStageId={gs.currentStageId} isPEPath={gs.isPEPath} onDone={handlePromotionSceneDone} />
           )}
           {gs.subScreen === 'sleepInScene' && (
             <SleepInScene gameState={gs} onDone={handleSleepInSceneDone} />
+          )}
+          {gs.subScreen === 'marathonScene' && (
+            <MarathonScene isPEPath={gs.isPEPath} onDone={handleMarathonSceneDone} />
+          )}
+          {gs.subScreen === 'peIntro' && (
+            <PEIntroScene onDone={() => update({ subScreen: 'bonusSpree' })} />
           )}
           {gs.subScreen === 'bonusSpree' && (
             <BonusSpree gameState={gs} onChosen={handleBonusSpreeChosen} />
@@ -1215,7 +1508,11 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         <FirstEncounterScene encounterId={gs.pendingFirstEncounterId} onDone={handleFirstEncounterDone} />
       )}
       {gs.subScreen === 'dateConversation' && (
-        <DateConversationScene encounterId={gs.firstEncounterId} onDone={handleDateConversationDone} />
+        <DateConversationScene
+          encounterId={gs.firstEncounterId}
+          onDone={handleDateConversationDone}
+          isEngaged={['engaged', 'married'].includes(gs.relationshipStatus)}
+        />
       )}
       {gs.subScreen === 'breakupScene' && (
         <BreakupScene gameState={gs} onDone={handleBreakupDone} />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react'; // useEffect kept for click sound
 import IntroScreen     from './components/IntroScreen';
 import CharacterSelect from './components/CharacterSelect';
 import TraitAllocation from './components/TraitAllocation';
@@ -10,6 +10,7 @@ import SlotPicker      from './components/SlotPicker';
 import EndingsGallery  from './components/EndingsGallery';
 import { calculateStartingStats } from './gameData';
 import { getQuarterlyRent } from './gameEngine';
+import { pickQuarterlyItems } from './gameItems';
 import './App.css';
 
 export const SCREENS = {
@@ -114,6 +115,7 @@ const buildInitialGameState = (character, traits) => {
     isPEPath:           false,
     salaryMultiplier:   1,
     promoReqMultiplier: 1,
+    loganDismissed:     false,
 
     currentYear:    1,
     currentQuarter: 1,
@@ -124,7 +126,8 @@ const buildInitialGameState = (character, traits) => {
     monthActivities:       [],
     linkedInMonths:        0,
     sideProjectMonths:     0,
-    eventDChoiceCount:     0,
+    eventDChoiceCount:          0,
+    cultureDefyingChoiceCount:  0,
     legacyPromotionCount:  0,
     legacyHireEventFired:  false,
     dateHistory:           { jordan: 0, sam: 0, riley: 0, alex: 0 },
@@ -137,6 +140,9 @@ const buildInitialGameState = (character, traits) => {
     titlesEarned:          [],
     allBadgesEarned:       [],
 
+    quarterlyItems:           pickQuarterlyItems('analyst'),
+    itemPurchasedThisQuarter: false,
+
     eventIndex: 0,
 
     subScreen:                'monthPicker',
@@ -145,6 +151,7 @@ const buildInitialGameState = (character, traits) => {
     sleepInChosenThisQuarter: false,
     currentEvent:             null,
     lastStatChanges:          null,
+    quarterlyStatDelta:       {},
     salarySummary:            null,
     annualData:               null,
     specialEventType:         null,
@@ -159,8 +166,8 @@ export default function App() {
   const [character,    setCharacter]    = useState(null);
   const [traits,       setTraits]       = useState(null);
   const [gameState,    setGameState]    = useState(null);
-  const [currentSlot,  setCurrentSlot]  = useState(null);
-  const [saveExists,   setSaveExists]   = useState(hasAnySave);
+  const [currentSlot,   setCurrentSlot]   = useState(null);
+  const [saveExists,    setSaveExists]    = useState(hasAnySave);
   const [saveFlash,    setSaveFlash]    = useState(false);
   const audioRef       = useRef(null);
   const endingAudioRef = useRef(null);
@@ -207,20 +214,6 @@ export default function App() {
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
-  // Auto-save to current slot whenever in-game state changes
-  useEffect(() => {
-    if (screen !== SCREENS.GAME || !gameState) return;
-    let slot = currentSlot;
-    if (slot === null) {
-      const slots  = getAllSlots();
-      const emptyI = slots.findIndex(s => s === null);
-      slot = emptyI >= 0 ? emptyI + 1 : 1;
-      setCurrentSlot(slot);
-    }
-    saveToSlot(slot, { screen: SCREENS.GAME, character, traits, gameState });
-    setSaveExists(true);
-  }, [gameState]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const goTo = (s) => setScreen(s);
 
   // ── Manual save — opens slot picker ──────────────────────────────────────
@@ -236,7 +229,7 @@ export default function App() {
   };
 
   // ── Load game — opens slot picker ─────────────────────────────────────────
-  const handleLoadGame = () => goTo(SCREENS.LOAD_SLOT);
+  const handleLoadGame = () => { startMusic(); goTo(SCREENS.LOAD_SLOT); };
 
   const handleSlotLoad = (slotNum) => {
     const saved = getSlot(slotNum);
@@ -265,7 +258,7 @@ export default function App() {
     const gs = buildInitialGameState(character, traits);
     gs.yearStartStats = { ...gs.stats };
     setGameState(gs);
-    setCurrentSlot(null); // slot assigned on first auto-save
+    setCurrentSlot(null);
     goTo(SCREENS.BOSS_INTRO);
   };
 
@@ -273,16 +266,14 @@ export default function App() {
 
   const handleEndingReached = (endingId) => {
     setGameState(prev => ({ ...prev, endingId }));
-    if (currentSlot) clearSlot(currentSlot);
-    setCurrentSlot(null);
-    setSaveExists(hasAnySave());
+    if (audioRef.current) { audioRef.current.pause(); }
     if (['burntOut', 'bankruptcy', 'mentalBreakdown'].includes(endingId)) {
       if (audioRef.current) audioRef.current.pause();
       const failAudio = new Audio('/fail.flac');
       failAudio.volume = 0.6;
       failAudio.play().catch(() => {});
     }
-    if (['madePartner', 'madeMD'].includes(endingId)) {
+    if (['madePartner', 'madeMD', 'kingOfWallStreet'].includes(endingId)) {
       if (audioRef.current) audioRef.current.pause();
       setTimeout(() => {
         const victoryAudio = new Audio('/victory.mp3');
@@ -290,7 +281,7 @@ export default function App() {
         victoryAudio.play().catch(() => {});
       }, 2000);
     }
-    if (['backToFamilyBusiness', 'earlyRetirement', 'startupSuccess'].includes(endingId)) {
+    if (['backToFamilyBusiness', 'earlyRetirement', 'startupSuccess', 'headOfCorpDev', 'professionalCoach', 'friendsFO'].includes(endingId)) {
       if (audioRef.current) audioRef.current.pause();
       const legacyAudio = new Audio('/legacy.mp3');
       endingAudioRef.current = legacyAudio;
@@ -299,7 +290,7 @@ export default function App() {
         legacyAudio.play().catch(() => {});
       }, 2000);
     }
-    if (['upOrOut', 'permanentVP', 'headOfInternalStrategy', 'startupBust'].includes(endingId)) {
+    if (['upOrOut', 'permanentVP', 'headOfInternalStrategy', 'startupBust', 'burntOut', 'mentalBreakdown', 'bankruptcy', 'fire', 'regulator'].includes(endingId)) {
       if (audioRef.current) audioRef.current.pause();
       const badAudio = new Audio('/badending.mp3');
       endingAudioRef.current = badAudio;
@@ -321,12 +312,24 @@ export default function App() {
     goTo(SCREENS.ENDING);
   };
 
+  const handleNextChapter = (musicSrc) => {
+    if (endingAudioRef.current) { endingAudioRef.current.pause(); endingAudioRef.current = null; }
+    if (musicSrc) {
+      const audio = new Audio(musicSrc);
+      endingAudioRef.current = audio;
+      setTimeout(() => { audio.volume = 0.6; audio.play().catch(() => {}); }, 500);
+    }
+  };
+
   const handleRestart = () => {
     if (endingAudioRef.current) { endingAudioRef.current.pause(); endingAudioRef.current = null; }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setMusicStarted(false);
     setCharacter(null);
     setTraits(null);
     setGameState(null);
     setCurrentSlot(null);
+    setSaveExists(hasAnySave());
     goTo(SCREENS.INTRO);
   };
 
@@ -368,7 +371,7 @@ export default function App() {
         />
       )}
       {screen === SCREENS.ENDING && gameState && (
-        <GameEnding endingId={gameState.endingId} gameState={gameState} onRestart={handleRestart} />
+        <GameEnding endingId={gameState.endingId} gameState={gameState} onRestart={handleRestart} onNextChapter={handleNextChapter} />
       )}
       {screen === SCREENS.ENDINGS && (
         <EndingsGallery onClose={() => goTo(SCREENS.INTRO)} />

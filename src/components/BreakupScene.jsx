@@ -10,6 +10,7 @@ const GHOSTED_OPENER = {
   anastasia: 'Anastasia had always kept you at a careful remove. You had assumed that was just how she was. It turned out that was also, eventually, how she left.',
   olivia:    'Olivia had a way of making silence feel considered. For a while you convinced yourself that was what this was.',
   emily:     'Emily had always been warm, consistently and without effort. That was what made the quiet so disorienting.',
+  logan:     'Logan had been easy to read, the night you met at the fundraiser. Confident, direct, clearly interested. The silence that followed was not like him at all.',
 };
 
 const BREAKUP_PARTNER_LINE = {
@@ -21,6 +22,7 @@ const BREAKUP_PARTNER_LINE = {
   anastasia: 'Anastasia Orlova had left you.\n\nNot dramatically. Not with accusations. She simply, clearly, told you she was done. It was, in retrospect, exactly how you would have expected her to do it.',
   olivia:    'Olivia Beaufort had left you.\n\nShe had chosen a quiet dinner for it. She had chosen the restaurant. She had been, as always, impeccably composed.',
   emily:     'Emily Miller had left you.\n\nShe cried. You hadn\'t expected that. Or maybe you had, and that was why it had taken this long to really consider what you were losing.',
+  logan:     'Logan Sterling had left you.\n\nNo drama, no ultimatum. He simply sent a message that said, with characteristic efficiency, that he didn\'t think this was going anywhere. He wished you well. He meant it.',
 };
 
 const QUIET_SEP_OPENER = {
@@ -32,6 +34,7 @@ const QUIET_SEP_OPENER = {
   anastasia: 'Anastasia',
   olivia:    'Olivia',
   emily:     'Emily',
+  logan:     'Logan',
 };
 
 function buildGhostedText(partnerId, playerName, subjectPronoun = 'They') {
@@ -86,6 +89,21 @@ function buildQuietSepText(partnerId, playerName, partnerFullName) {
   ].join('\n\n');
 }
 
+function buildEarlyGhostedText(partnerId, playerName) {
+  const firstName = {
+    victor: 'Victor', marco: 'Marco', david: 'David', julien: 'Julien',
+    adira: 'Adira', anastasia: 'Anastasia', olivia: 'Olivia', emily: 'Emily', logan: 'Logan',
+  }[partnerId] ?? 'them';
+
+  return [
+    `${playerName} had meant to follow up. That was the honest thing — there had been a real moment, a genuine spark, and at the time it had felt like the start of something worth pursuing.`,
+    `But there was always a reason not to act on it. A live deal. A late model. A week that evaporated before anything personal got addressed. The draft stayed unsent. The window stayed open. The days compounded into weeks, and then into a quarter, and then another.`,
+    `${firstName} had stopped reaching out. ${playerName} couldn't blame them. Silence is its own kind of answer, and ${playerName} had been very, very quiet.`,
+    `It was nobody's fault, really. That was the most uncomfortable version of this — no villain, no mistake. Just the simple arithmetic of someone who kept choosing the job over everything else, until there was very little else left.`,
+    `The door had been open.\n\n${playerName} had been too busy to walk through it.\n\nNow it wasn't open anymore.`,
+  ].join('\n\n');
+}
+
 function buildDivorceText(partnerId, playerName, partnerFullName) {
   return [
     `The papers arrived on a Tuesday. ${playerName} signed them the same day. There was no dramatic final conversation — they had already had it, in fragments, over the course of several years.`,
@@ -101,6 +119,7 @@ const SANITY_PENALTY = {
   breakup:          50,
   quietSeparation:  50,
   divorce:          75,
+  earlyGhosted:     15,
 };
 
 const EVENT_TAG = {
@@ -108,6 +127,7 @@ const EVENT_TAG = {
   breakup:         'IT\'S OVER',
   quietSeparation: 'A QUIET GOODBYE',
   divorce:         'THE END OF THE MARRIAGE',
+  earlyGhosted:    'MISSED CONNECTION',
 };
 
 const EVENT_BTN = {
@@ -115,6 +135,7 @@ const EVENT_BTN = {
   breakup:         '[ MOVE ON ]',
   quietSeparation: '[ MOVE ON ]',
   divorce:         '[ MOVE ON ]',
+  earlyGhosted:    '[ MOVE ON ]',
 };
 
 export default function BreakupScene({ gameState: gs, onDone }) {
@@ -131,7 +152,7 @@ export default function BreakupScene({ gameState: gs, onDone }) {
   const partnerFullName = {
     victor: 'Victor Hughes', marco: 'Marco Moretti', david: 'David Li',
     julien: 'Julien Laurent', adira: 'Adira Sharma', anastasia: 'Anastasia Orlova',
-    olivia: 'Olivia Beaufort', emily: 'Emily Miller',
+    olivia: 'Olivia Beaufort', emily: 'Emily Miller', logan: 'Logan Sterling',
   }[relationshipPartnerId] ?? 'your partner';
 
   const isMax = characterId !== 'paige';
@@ -140,17 +161,19 @@ export default function BreakupScene({ gameState: gs, onDone }) {
 
   const bgImage = breakupEventType === 'divorce'
     ? '/divorce.png'
-    : breakupEventType === 'ghosted'
+    : breakupEventType === 'ghosted' || breakupEventType === 'earlyGhosted'
       ? '/ghosted.png'
       : bgBreakup;
 
-  const narrativeText = breakupEventType === 'ghosted'
-    ? buildGhostedText(relationshipPartnerId, characterName, subjectPronoun)
-    : breakupEventType === 'breakup'
-      ? buildBreakupText(relationshipPartnerId, characterName)
-      : breakupEventType === 'quietSeparation'
-        ? buildQuietSepText(relationshipPartnerId, characterName, partnerFullName)
-        : buildDivorceText(relationshipPartnerId, characterName, partnerFullName);
+  const narrativeText = breakupEventType === 'earlyGhosted'
+    ? buildEarlyGhostedText(relationshipPartnerId, characterName)
+    : breakupEventType === 'ghosted'
+      ? buildGhostedText(relationshipPartnerId, characterName, subjectPronoun)
+      : breakupEventType === 'breakup'
+        ? buildBreakupText(relationshipPartnerId, characterName)
+        : breakupEventType === 'quietSeparation'
+          ? buildQuietSepText(relationshipPartnerId, characterName, partnerFullName)
+          : buildDivorceText(relationshipPartnerId, characterName, partnerFullName);
 
   const penalty = SANITY_PENALTY[breakupEventType] ?? 50;
 

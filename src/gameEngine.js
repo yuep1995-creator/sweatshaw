@@ -60,9 +60,9 @@ export const applyEffects = (stats, rawEffects, multipliers = {}, currentYear = 
     effects.competence = Math.round(effects.competence * competenceMultiplier);
   }
   // Grit → Sanity losses only (losses become smaller; Rich Legacy amplified via negative value)
-  // Year scaling: sanity losses grow 15% per year to reflect increasing toll of the job
+  // Year scaling: +10%/yr every year
   if (effects.sanity != null && effects.sanity < 0) {
-    const yearMultiplier = Math.pow(1.15, currentYear - 1);
+    const yearMultiplier = Math.pow(1.10, currentYear - 1);
     effects.sanity = Math.round(effects.sanity * yearMultiplier * (1 - sanityLossReduction));
   }
   // Looks + Street Smart → Charisma gains (both multipliers applied multiplicatively)
@@ -96,7 +96,7 @@ export const getAdjustedEffects = (rawEffects, multipliers = {}, housingTier = n
   if (effects.competence != null && effects.competence > 0)
     effects.competence = Math.round(effects.competence * competenceMultiplier);
   if (effects.sanity != null && effects.sanity < 0) {
-    const yearMultiplier = Math.pow(1.15, currentYear - 1);
+    const yearMultiplier = Math.pow(1.10, currentYear - 1);
     effects.sanity = Math.round(effects.sanity * yearMultiplier * (1 - sanityLossReduction));
   }
   if (effects.charisma != null && effects.charisma > 0)
@@ -140,10 +140,65 @@ export const processActivity = (activityDef, currentStats, multipliers, currentY
 // ─────────────────────────────────────────────
 // EVENT SELECTION
 // ─────────────────────────────────────────────
-export const pickQuarterlyEvent = (year, quarter, currentStageId) => {
+export const pickQuarterlyEvent = (year, quarter, currentStageId, hasActiveRelationship = false, hadTherapyThisQuarter = false, seenOnceEvents = [], urgentClientFollowUpDue = false, opts = {}) => {
   const stageOrder = ['analyst', 'associate', 'vp', 'director'];
   const stageIdx = stageOrder.indexOf(currentStageId);
+
+  // Y1Q1 always triggers Humble Bragging
+  if (year === 1 && quarter === 1) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'humbleBragging');
+  }
+
+  // Therapy this quarter always triggers Therapy Time
+  if (hadTherapyThisQuarter) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'therapyTime');
+  }
+
+  // Headhunter follow-up fires 2 quarters after urgentClientSituation option 1
+  if (urgentClientFollowUpDue) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'headhunterFollowUp');
+  }
+
+  // Q1 from year 2 onwards: 30% chance of Après-ski
+  if (quarter === 1 && year >= 2 && Math.random() < 0.30) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'apresSki');
+  }
+
+  // Q2 + Director (once only) triggers The Offsite
+  if (quarter === 2 && currentStageId === 'director' && !seenOnceEvents.includes('theOffsite')) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'theOffsite');
+  }
+
+  // Q2 + VP or Director + 25% chance triggers The Hot Intern
+  if (quarter === 2 && ['vp', 'director'].includes(currentStageId) && Math.random() < 0.25) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'theHotIntern');
+  }
+
+  // Q3 + active relationship + 25% coin flip triggers the Birthday Deal
+  if (quarter === 3 && hasActiveRelationship && Math.random() < 0.25) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'birthdayDeal');
+  }
+
+  // Q4 only: single roll → 25% Feedback Sandwich, 25% Christmas Party, 50% normal rotation
+  if (quarter === 4) {
+    const q4Roll = Math.random();
+    if (q4Roll < 0.25) return QUARTERLY_EVENTS.find(ev => ev.id === 'feedbackSandwich');
+    if (q4Roll < 0.50) return QUARTERLY_EVENTS.find(ev => ev.id === 'christmasParty');
+    // else fall through to normal rotation
+  }
+
   const eligible = QUARTERLY_EVENTS.filter(ev => {
+    if (ev.firstQuarterOnly) return false;    // only fires at Y1Q1
+    if (ev.therapyOnly) return false;         // only fires when therapy was chosen this quarter
+    if (ev.q3RelationshipOnly) return false;  // only fires at Q3 with relationship
+    if (ev.q4Only) return false;              // only fires via Q4 roll above
+    if (ev.q1FromYear2Only) return false;     // only fires via Q1 year≥2 roll above
+    if (ev.q2VpPlusOnly) return false;        // only fires via Q2 VP+ roll above
+    if (ev.headhunterFollowUpOnly) return false; // only fires via urgentClientFollowUpDue
+    if (ev.directorQ2OffsiteOnly) return false;  // only fires via Q2 Director dedicated check
+    if (ev.loganQ4Only) return false;            // retired — Logan now has its own scene
+    if (ev.onceOnly && seenOnceEvents.includes(ev.id)) return false; // already seen
+    if (ev.maxStage && stageOrder.indexOf(ev.maxStage) < stageIdx) return false; // stage ceiling
     if (!ev.unlockFromStage) return true;
     return stageOrder.indexOf(ev.unlockFromStage) <= stageIdx;
   });
@@ -333,21 +388,20 @@ export const checkEndings = (gs) => {
     stats, currentYear, currentStageId,
     sideProjectMonths, linkedInMonths, eventDChoiceCount,
     consecutiveWeekendQuarters, sanityFloor, baseTraits,
-    lowSanityQuarters, allBadgesEarned,
+    lowSanityQuarters, allBadgesEarned, cultureDefyingChoiceCount,
   } = gs;
 
-  // Golden handcuffs
-  if (stats.wealth >= 500_000 && stats.sanity < 20 && currentStageId === 'director') return 'goldenHandcuffs';
-  // F.I.R.E. — wealthy, sanity low for 3+ quarters, late game, no serious relationship
-  if (stats.wealth > 2_000_000 && (lowSanityQuarters || 0) >= 3 && currentYear > 6 && !(allBadgesEarned || []).includes('taken')) return 'fire';
-  if (stats.reputation > 300 && eventDChoiceCount >= 7 && (baseTraits?.grit ?? 100) < 15 && (lowSanityQuarters || 0) >= 3) return 'regulator';
+  // Rich Legacy characters always fall back to backToFamilyBusiness — never FIRE or Regulator
+  if (gs.isRichLegacy) return null;
+
+  // F.I.R.E. — wealthy, low-grit character, year 6+
+  if (stats.wealth > 2_000_000 && currentYear > 5 && (baseTraits?.grit ?? 100) < 19) return 'fire';
+  if (stats.reputation > 400 && (cultureDefyingChoiceCount || 0) >= 4 && (baseTraits?.grit ?? 100) < 19 && (lowSanityQuarters || 0) >= 2) return 'regulator';
   return null;
 };
 
 // ─────────────────────────────────────────────
 // SPECIAL EVENT TRIGGERS
 // ─────────────────────────────────────────────
-export const shouldFireWakeUpCall = (year, quarter) => year === 4 && quarter === 4;
-
 export const shouldFireLegacyHireEvent = (year, quarter, isLegacyHire, legacyPromotionCount, legacyHireEventFired) =>
   isLegacyHire && year === 10 && quarter === 2 && legacyPromotionCount >= 3 && !legacyHireEventFired;

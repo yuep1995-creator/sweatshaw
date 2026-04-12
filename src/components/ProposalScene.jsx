@@ -1,6 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const COZY_PARTNERS = ['david', 'marco', 'emily'];
+
+const WEDDING_COSTS = { emily: 80_000, david: 80_000, marco: 80_000 };
+const getWeddingCost = (partnerId) => WEDDING_COSTS[partnerId] ?? 150_000;
+
+const PROPOSAL_NARRATIVE = {
+  emily: (cost) =>
+    `You asked Emily to meet at the park where you used to walk home from school. She thought you were going to talk about work.\n\nYou didn't.\n\nYou set aside $${cost.toLocaleString()} for the wedding — something small, something real. You were very excited for the ceremony.`,
+  david: (cost) =>
+    `You asked David to meet at the farmers' market on a Sunday morning — the same one where you first ran into each other, quite literally. He brought coffee. You brought a question.\n\nYou set aside $${cost.toLocaleString()} for the wedding — something quiet, something you'd both remember. You were very excited for the ceremony.`,
+  marco: (cost) =>
+    `You took Marco to the Hampshire beach — the kind of weekend he'd been suggesting for months. The sun was low when you stopped walking.\n\nYou set aside $${cost.toLocaleString()} for the wedding — something warm, something real. You were very excited for the ceremony.`,
+  victor: (cost) =>
+    `You booked the private dining room. Victor arrived precisely on time. The table was set. The moment had been chosen well in advance.\n\nYou decided to put aside $${cost.toLocaleString()} into your wedding pot. The ceremony would be everything it should be. You were very excited for what was to come.`,
+  julien: (cost) =>
+    `You suggested somewhere different tonight — not the usual restaurant, not the usual evening. Julien noticed you were nervous before the starters arrived. He waited.\n\nYou decided to put aside $${cost.toLocaleString()} into your wedding pot. The ceremony would be everything it should be. You were very excited for what was to come.`,
+  adira: (cost) =>
+    `You took Adira to the rooftop bar where you first had a proper conversation — not about deals, not about work. Just the two of you, looking out over the city.\n\nYou decided to put aside $${cost.toLocaleString()} into your wedding pot. The ceremony would be everything it should be. You were very excited for what was to come.`,
+  anastasia: (cost) =>
+    `You arranged a table at the Carlyle — private, quiet. Anastasia dressed for the occasion without knowing what it was. She often seemed to know things before you told her.\n\nYou decided to put aside $${cost.toLocaleString()} into your wedding pot. The ceremony would be everything it should be. You were very excited for what was to come.`,
+  olivia: (cost) =>
+    `You took Olivia back to the Whitney — the same gallery where everything had properly started. The evening collection was on loan and the room was nearly empty.\n\nYou decided to put aside $${cost.toLocaleString()} into your wedding pot. The ceremony would be everything it should be. You were very excited for what was to come.`,
+  logan: (cost) =>
+    `You were at dinner — the usual restaurant, the usual table — when Logan set down his glass, reached into his jacket, and produced a ring.\n\nYou had not seen this coming. He seemed to know that. He seemed, if anything, slightly pleased about it.\n\n"I've been carrying this for three months," he said. "I kept looking for the right moment and then I realised — there is no right moment. There's just the decision. And I've made it."\n\nYou set aside $${cost.toLocaleString()} for the wedding. He had already had preliminary thoughts on the venue. You were not surprised. You were very excited for what was to come.`,
+};
 
 const PROPOSALS = {
   victor: {
@@ -35,22 +59,40 @@ const PROPOSALS = {
     playerVow: `"You saved me as 'Max from Minnesota.'\n\nThat's still who I am, when I'm with you. I want to be that person — your person — for good."`,
     partnerVow: `She's already smiling — has been since you started.\n\n"I've been checking in since middle school. I'm not planning to stop."\n\nShe squeezes your hand.\n\n"I love you. That's — that's the whole vow. Yes."`,
   },
+  logan: {
+    playerVow: `"You were the only person in that building who never needed to prove anything. You were just — good. Better than you knew.\n\nI've been thinking about how to say this since the year we worked that first cycle. I'm done waiting for the right quarter.\n\nI'm asking you to marry me."`,
+    partnerVow: `You are quiet for a moment. The restaurant continues around you.\n\nThen: "You rehearsed that."\n\nHe does not deny it. He just looks at you — the steady, unhurried way he has when he's already decided.\n\n"I did," he says. "I wanted to get it right. Because you deserve someone who gets it right."\n\nA beat.\n\n"Yes. Obviously yes."`,
+  },
 };
 
 export default function ProposalScene({ gameState: gs, onDone }) {
-  const [page, setPage] = useState(0);
+  const [page, setPage]         = useState(0);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   const partnerId   = gs.relationshipPartnerId;
   const partnerName = {
     victor: 'Victor Hughes', marco: 'Marco Moretti', david: 'David Li',
     julien: 'Julien Laurent', adira: 'Adira Sharma', anastasia: 'Anastasia Orlova',
-    olivia: 'Olivia Beaufort', emily: 'Emily Miller',
+    olivia: 'Olivia Beaufort', emily: 'Emily Miller', logan: 'Logan Sterling',
   }[partnerId] ?? 'your partner';
 
-  const proposal  = PROPOSALS[partnerId] ?? PROPOSALS.emily;
-  const bgImage   = COZY_PARTNERS.includes(partnerId) ? '/cozyproposal.png' : '/poshproposal.png';
+  const proposal      = PROPOSALS[partnerId] ?? PROPOSALS.emily;
+  const weddingCost   = getWeddingCost(partnerId);
+  const bgImage       = COZY_PARTNERS.includes(partnerId) ? '/proposal1.png' : '/proposal2.png';
+  const narrativeFn   = PROPOSAL_NARRATIVE[partnerId] ?? PROPOSAL_NARRATIVE.emily;
+  const narrativeText = narrativeFn(weddingCost);
 
   const pages = [
+    {
+      tag:  'THE PROPOSAL',
+      text: narrativeText,
+      btn:  'Continue →',
+    },
     {
       tag:  'THE QUESTION',
       text: proposal.playerVow,
@@ -65,13 +107,15 @@ export default function ProposalScene({ gameState: gs, onDone }) {
 
   const current = pages[page];
   const isLast  = page === pages.length - 1;
-
-  const lines = current.text.split('\n');
+  const lines   = current.text.split('\n');
 
   return (
     <div className="proposal-screen" style={{ backgroundImage: `url('${bgImage}')` }}>
-      <div className="proposal-overlay" />
-      <div className="proposal-card">
+      <div className="proposal-overlay" style={{ opacity: revealed ? 1 : 0 }} />
+      <div
+        className="proposal-card"
+        style={{ opacity: revealed ? 1 : 0, transform: revealed ? 'translateY(0)' : 'translateY(16px)' }}
+      >
         <div className="proposal-tag">{current.tag}</div>
 
         <div className="proposal-text">

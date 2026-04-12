@@ -2021,6 +2021,7 @@ body {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
+  transition: opacity 1.2s ease;
 }
 
 .proposal-card {
@@ -2034,6 +2035,7 @@ body {
   width: 90%;
   text-align: center;
   backdrop-filter: blur(6px);
+  transition: opacity 1.2s ease, transform 1.2s ease;
 }
 
 .proposal-tag {
@@ -2652,13 +2654,32 @@ body {
   position: relative;
   /* Bleed to the edges of gs-main, cancelling its 24px padding */
   margin: -24px;
-  min-height: calc(100vh - 50px);
+  height: calc(100vh - 50px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 32px;
   animation: fadeIn 0.4s ease forwards;
   overflow: hidden;
+}
+
+.gs-layout:has(.qe-screen) {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.gs-body:has(.qe-screen) {
+  height: calc(100vh - 50px);
+  overflow: hidden;
+}
+
+.gs-main:has(.qe-screen) {
+  overflow: hidden;
+}
+
+.gs-body:has(.qe-screen) .gs-sidebar {
+  overflow-y: auto;
+  height: 100%;
 }
 
 /* Full-bleed scene photo */
@@ -2694,7 +2715,88 @@ body {
   flex-direction: column;
   gap: 16px;
   box-shadow: 0 8px 48px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 2s ease, transform 2s ease;
 }
+
+.qe-card--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ── Crypto event UI ── */
+.qe-crypto {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qe-crypto-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.qe-crypto-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.qe-crypto-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--warning);
+  font-family: var(--font-mono);
+}
+
+.qe-crypto-slider {
+  width: 100%;
+  accent-color: var(--warning);
+  cursor: pointer;
+}
+
+.qe-crypto-limits {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.qe-crypto-btn {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.qe-crypto-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.qe-crypto-result {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.qe-crypto-win  { color: #4ade80; }
+.qe-crypto-loss { color: #ef4444; }
+
+.qe-crypto-delta {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.qe-crypto-delta.pos { color: #4ade80; }
+.qe-crypto-delta.neg { color: #ef4444; }
 
 .qe-tag {
   font-family: var(--font-mono);
@@ -2707,13 +2809,13 @@ body {
 .qe-title {
   font-size: 1.3rem;
   font-weight: 700;
-  color: var(--text);
+  color: #ffffff;
   line-height: 1.3;
 }
 
 .qe-text {
   font-size: 0.9rem;
-  color: var(--text-dim);
+  color: #ffffff;
   line-height: 1.7;
 }
 
@@ -3420,6 +3522,23 @@ body {
 }
 .se-choice-effects .pos { color: var(--success); }
 .se-choice-effects .neg { color: var(--danger); }
+
+/* Personal Dev Note overrides */
+.pdn-choice--default {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+}
+.pdn-choice--default .se-choice-letter { color: var(--accent); }
+
+.pdn-choice--locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+.pdn-choice--locked:hover {
+  border-color: var(--border);
+  background: var(--bg-surface);
+}
 
 /* ─────────────────────────────────────────────
    GAME ENDING
@@ -4859,4 +4978,170 @@ body {
   .eg-layout { flex-direction: column; }
   .eg-sidebar { width: 100%; min-width: unset; height: 220px; border-right: none; border-bottom: 1px solid #1e293b; }
   .eg-preview { padding: 1.5rem; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ITEM SHOP
+══════════════════════════════════════════════════════════════════ */
+.item-shop-row {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.item-card {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.item-card-img {
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* Entire Items row dimmed once a purchase has been made this quarter */
+.item-row-purchased .item-card {
+  opacity: 0.25;
+  filter: brightness(0.3) grayscale(0.6);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.item-row-purchased .mp-cat-label::after {
+  content: ' — purchased';
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.item-gift-hint {
+  font-size: 0.65rem;
+  opacity: 0.75;
+}
+
+/* ── Gift modal ───────────────────────────────────────────────── */
+.item-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.item-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem 1.8rem;
+  max-width: 360px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+
+.item-modal-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.item-modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.item-modal-cost {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.item-modal-prompt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.item-modal-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.item-modal-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+}
+
+.item-modal-btn-label {
+  font-weight: 600;
+}
+
+.item-modal-btn-effects {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.item-modal-cancel {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  margin-top: 0.25rem;
+  text-decoration: underline;
+}
+
+.item-modal-cancel:hover {
+  color: var(--text);
+}
+
+/* ── Logan Scene choices ──────────────────────────────────────────── */
+.logan-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+.logan-choice-btn {
+  background: rgba(10, 14, 26, 0.82);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  padding: 0.65rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  line-height: 1.4;
+}
+
+.logan-choice-btn:hover {
+  border-color: var(--accent);
+  background: rgba(79,110,247,0.10);
 }
