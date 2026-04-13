@@ -86,30 +86,35 @@ const LOGAN_DATA = {
     subtitle:  'Associate — Darkstone & Partners',
     bgImage:   '/nightclub.png',
     pages: [
-      `You're at a fundraiser event — low lighting, expensive drinks, the usual crowd. Someone touches your arm from behind.\n\nIt's Logan Sterling.\n\nHe looks good. He's holding a glass of something amber and watching you with the quiet, slightly too-composed expression of a man who has been working up to something.\n\n"Turner. I didn't think I'd see you here. I've been thinking about you since the summer internship, honestly. I didn't know how to say it then." A pause. "But now — I mean. Look at us."`,
+      `It is Friday and you were hanging out with some friends at a Chelsea club. Someone touches your arm from behind — light, deliberate, the kind of touch that isn't accidental.\n\nYou know before you turn around. Some things register in the body before the brain catches up.\n\nLogan Sterling.\n\nHe looks good. Of course he does. He's wearing a charcoal suit that didn't come off any rack, and he's holding a glass of something amber — Scotch, probably, he was always particular about Scotch — with the easy looseness of a man who is very comfortable or working very hard to appear that way. You've never been entirely sure which with him.`,
+      `"[SURNAME]." The corner of his mouth lifts. Not quite a smile. More like a decision. "I didn't think I'd see you here."\n\n"Logan." You keep your voice even. "Me neither. I thought you'd be working at this hour on a Friday. How's life on the other side?"\n\n"Better hours, better play. Different kind of pressure." He tilts his glass slightly, watching the light move through it. "I don't miss the floor. I do miss—" He stops. Seems to recalibrate. "Some things."`,
+      `"I have been thinking about catching up with you since my last day, but you know..." He whispers, "Well. There was always something in the way. A deal, a deadline, another closing dinner."\n\nLogan takes half a step closer. Not crowding — just closer. Close enough that you'd have to make a choice about it, one way or the other.\n\nThe words land softly. No grand gesture, no performance. Just Logan Sterling, who could talk a room into anything, standing in front of you with something unguarded in his expression for once — waiting to see what you'll do with it.`,
     ],
+    ghostText: `You woke up at Logan's place at 8:45am. He is already gone. There is a note on the bedside table: "off to gym now — last night was a blast. Btw the door locks itself on the way out, take care."\n\nThat was probably one of the poorest decisions you made in life, you humoured yourself at the thought. You never saw him again.`,
     choices: [
       {
         id:              'accept',
-        label:           '"Okay, Logan. Let\'s see where the night takes us."',
+        label:           '"Well, guess it\'s better late than never." You leaned forward, dangerously.',
         isLoganY5Accept: true,
         effects:         { sanity: -5 },
       },
       {
         id:               'decline',
-        label:            '"I\'m flattered. But let\'s keep this professional."',
+        label:            '"That\'s a kind thing to say." You take a step back, and dismiss him politely.',
         isLoganY5Decline: true,
         effects:          { charisma: 10 },
       },
       {
         id:             'laugh',
-        label:          '"You waited five years to say that?" You can\'t help but laugh.',
+        label:          '"You have not changed at all, Logan." You take a step back and laugh at him to dissolve the tension.',
         isLoganY5Laugh: true,
-        effects:        { charisma: 20, sanity: 20 },
+        effects:        { sanity: 10, charisma: 5 },
       },
     ],
   },
 };
+
+const ACTIVE_STATUSES = ['entangled', 'relationship', 'engaged', 'married'];
 
 export default function LoganScene({ gameState: gs, onDone }) {
   const [page,              setPage]              = useState(0);
@@ -117,6 +122,8 @@ export default function LoganScene({ gameState: gs, onDone }) {
   const [fadeOut,           setFadeOut]           = useState(false);
   const [revealed,          setRevealed]          = useState(false);
   const [midChoiceSelected, setMidChoiceSelected] = useState(null);
+  const [ghostPage,         setGhostPage]         = useState(false);
+  const [pendingAccept,     setPendingAccept]      = useState(null);
 
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), 800);
@@ -141,6 +148,19 @@ export default function LoganScene({ gameState: gs, onDone }) {
     setTimeout(() => onDone(effectiveChoice), 500);
   };
 
+  const handleChoiceClick = (c) => {
+    if (c.isLoganY5Accept) {
+      const isInRelationship = ACTIVE_STATUSES.includes(gs.relationshipStatus);
+      const meetsCriteria    = gs.stats.charisma > 250 || (gs.baseTraits?.looks ?? 0) > 50;
+      if (!isInRelationship && !meetsCriteria) {
+        setPendingAccept(c);
+        setGhostPage(true);
+        return;
+      }
+    }
+    handleDone(c);
+  };
+
   const handleMidChoice = (c) => {
     setMidChoiceSelected(c);
     setPage(p => p + 1);
@@ -150,6 +170,33 @@ export default function LoganScene({ gameState: gs, onDone }) {
   const processText = (text) => text.replace('[SURNAME]', surname);
 
   const lines = processText(pages[page]).split('\n');
+
+  // Ghost aftermath page (Y5 accept with single + low charisma/looks)
+  if (ghostPage && data.ghostText) {
+    const ghostLines = processText(data.ghostText).split('\n');
+    return (
+      <div className={`fe-screen${fadeOut ? ' fe-fadeout' : ''}`}
+           style={{ opacity: revealed ? 1 : 0, transition: 'opacity 0.6s ease' }}>
+        <div className="fe-bg" style={{ backgroundImage: `url('${data.bgImage}')` }} />
+        <div className="fe-overlay" />
+        <img src="/logansterling.png" className="fe-char" alt="Logan Sterling" />
+        <div className="fe-left-panel">
+          <div className="fe-tag">{data.title}</div>
+          <div className="fe-dialogue">
+            <div className="fe-speaker">The Morning After</div>
+            <div className="fe-text">
+              {ghostLines.map((line, i) =>
+                line === ''
+                  ? <br key={i} />
+                  : <span key={i}>{line}<br /></span>
+              )}
+            </div>
+          </div>
+          <button className="fe-done" onClick={() => handleDone(pendingAccept)}>Continue</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`fe-screen${fadeOut ? ' fe-fadeout' : ''}`}
@@ -207,7 +254,7 @@ export default function LoganScene({ gameState: gs, onDone }) {
           hasChoices ? (
             <div className="logan-choices">
               {data.choices.map(c => (
-                <button key={c.id} className="logan-choice-btn" onClick={() => handleDone(c)}>
+                <button key={c.id} className="logan-choice-btn" onClick={() => handleChoiceClick(c)}>
                   {c.label}
                 </button>
               ))}

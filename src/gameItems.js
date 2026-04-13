@@ -76,6 +76,15 @@ export const ITEM_POOL = [
     weight: 1,
   },
   {
+    id: 'hairSerum',
+    name: 'Hair Serum',
+    image: '/hairserum.png',
+    cost: 5_000,
+    giftMode: 'none',
+    selfEffects: { charisma: 5 },
+    weight: 1,
+  },
+  {
     id: 'clubMembership',
     name: 'Club Membership',
     image: '/club.png',
@@ -170,7 +179,7 @@ export const ITEM_POOL = [
     image: '/bag4.png',
     cost: 5_000,
     giftMode: 'female',
-    selfEffects: { charisma: 10 },
+    selfEffects: { charisma: 5 },
     selfForFemaleCharOnly: true,
     giftEffects: { intimacy: 15 },
     weight: 1,
@@ -192,7 +201,7 @@ export const ITEM_POOL = [
     image: '/bag1.png',
     cost: 50_000,
     giftMode: 'female',
-    selfEffects: { charisma: 25 },
+    selfEffects: { charisma: 40 },
     selfForFemaleCharOnly: true,
     giftEffects: { intimacy: 60 },
     weight: 1,
@@ -203,7 +212,7 @@ export const ITEM_POOL = [
     image: '/bracelet.png',
     cost: 8_000,
     giftMode: 'female',
-    selfEffects: { charisma: 12 },
+    selfEffects: { charisma: 8 },
     selfForFemaleCharOnly: true,
     giftEffects: { intimacy: 25 },
     weight: 1,
@@ -288,9 +297,19 @@ export const ITEMS_PER_STAGE = {
 // ─── Pick N unique items for a quarter ────────────────────────────────────────
 // Returns an array of item definitions (length = count).
 // Excludes any ids in excludeIds (for no-repeat logic if needed).
-export function pickQuarterlyItems(stageId, excludeIds = []) {
+export function pickQuarterlyItems(stageId, excludeIds = [], opts = {}) {
+  const { characterId = null, relationshipPartnerId = null, relationshipStatus = null } = opts;
+  const ACTIVE_STATUSES = ['entangled', 'relationship', 'engaged', 'married'];
+  const hasActiveFemaleDate =
+    ACTIVE_STATUSES.includes(relationshipStatus) &&
+    PARTNER_GENDER[relationshipPartnerId] === 'female';
+
   const count = ITEMS_PER_STAGE[stageId] ?? 2;
-  const pool  = ITEM_POOL.filter(item => !excludeIds.includes(item.id));
+  const pool  = ITEM_POOL.filter(item => {
+    if (excludeIds.includes(item.id)) return false;
+    if (item.selfForFemaleCharOnly && characterId === 'max' && !hasActiveFemaleDate) return false;
+    return true;
+  });
 
   // Weighted random sampling without replacement
   const selected = [];

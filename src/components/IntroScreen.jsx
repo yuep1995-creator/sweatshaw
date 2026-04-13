@@ -119,11 +119,6 @@ export default function IntroScreen({ onBegin, onLoad, hasSave, onViewEndings })
         </div>
       </div>
 
-      {/* Endings button — bottom left */}
-      <button className="intro-endings-btn" onClick={onViewEndings}>
-        [ ENDINGS ]
-      </button>
-
       {/* News ticker at bottom */}
       <div className="intro-ticker">
         <span className="ticker-label">BREAKING</span>

@@ -1,9 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ENDINGS, EXTENSION_ENDINGS } from '../gameData';
 import { formatDollars } from '../gameEngine';
 
 export default function GameEnding({ endingId, gameState: gs, onRestart, onNextChapter }) {
   const [phase, setPhase] = useState('base'); // 'base' | 'extension'
+  const [showContent, setShowContent] = useState(false);
+
+  // Each time the phase changes (base → extension), show graphic alone for 1.5s then reveal content
+  useEffect(() => {
+    setShowContent(false);
+    const t = setTimeout(() => setShowContent(true), 1500);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  const contentStyle = {
+    opacity:       showContent ? 1 : 0,
+    transition:    'opacity 0.8s ease',
+    pointerEvents: showContent ? 'auto' : 'none',
+  };
 
   const ending = ENDINGS[endingId] || ENDINGS.obsolescence;
 
@@ -39,7 +53,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart, onNextC
         className="ending-screen ending-screen--char-bg"
         style={extBgSrc ? { backgroundImage: `url('${extBgSrc}')` } : undefined}
       >
-        <div className="ending-card" style={{ '--ending-colour': extensionEnding.colour }}>
+        <div className="ending-card" style={{ '--ending-colour': extensionEnding.colour, ...contentStyle }}>
           <div className="ending-header">
             <img src={gs.isPEPath ? '/dplogo.png' : '/sclogo.png'} alt="" className="ending-logo" />
             <span className="ending-company">{gs.isPEPath ? 'Darkstone Partners' : gs.companyName}</span>
@@ -74,7 +88,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart, onNextC
   if (ending.isAmericanPsycho) {
     return (
       <div className="ending-screen ending-ap-screen">
-        <div className="ending-ap-card">
+        <div className="ending-ap-card" style={contentStyle}>
           <h1 className="ending-ap-title">{ending.title}</h1>
           <div className="ending-ap-body">
             {text.split('\n\n').map((para, i) => (
@@ -93,7 +107,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart, onNextC
   if (ending.isBankruptcy) {
     return (
       <div className="ending-screen ending-bankruptcy-screen" style={{ backgroundImage: "url('/bankruptcy.png')" }}>
-        <div className="ending-bankruptcy-card">
+        <div className="ending-bankruptcy-card" style={contentStyle}>
           <h1 className="ending-bankruptcy-title">{ending.title}</h1>
           <div className="ending-bankruptcy-body">
             {text.split('\n\n').map((para, i) => (
@@ -143,7 +157,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart, onNextC
       className={`ending-screen${endingId === 'backToFamilyBusiness' ? ' ending-screen--family-business' : ''}${hasBgClass && !['backToFamilyBusiness'].includes(endingId) ? ' ending-screen--char-bg' : ''}`}
       style={charBg ? { backgroundImage: charBg } : undefined}
     >
-      <div className="ending-card" style={{ '--ending-colour': ending.colour }}>
+      <div className="ending-card" style={{ '--ending-colour': ending.colour, ...contentStyle }}>
         {/* Header */}
         <div className="ending-header">
           <img src={gs.isPEPath ? '/dplogo.png' : '/sclogo.png'} alt="" className="ending-logo" />

@@ -807,14 +807,15 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     }
 
     if (choice.isLoganY5Accept) {
+      const meetsLoganCriteria = gs.stats.charisma > 250 || (gs.baseTraits?.looks ?? 0) > 50;
       if (hasActiveRelationship(gs)) {
         const beType = gs.relationshipStatus === 'married' ? 'divorce'
           : ['relationship', 'engaged'].includes(gs.relationshipStatus) ? 'breakup' : 'ghosted';
-        update({ stats: newStats, loganDismissed: true, breakupEventType: beType, pendingAfterBreakup: 'quarterlySummary', subScreen: 'breakupScene' });
-      } else if (gs.stats.charisma > 250) {
+        update({ stats: newStats, loganDismissed: true, breakupEventType: beType, pendingLoganRelationship: meetsLoganCriteria, pendingAfterBreakup: 'quarterlySummary', subScreen: 'breakupScene' });
+      } else if (meetsLoganCriteria) {
         update({ stats: newStats, relationshipPartnerId: 'logan', relationshipStatus: 'entangled', relationshipIntimacy: INTIMACY_START.logan, firstEncounterId: 'logan', dateUnlocked: true, subScreen: 'quarterlySummary' });
       } else {
-        // Low charisma — Logan ghosts after the night
+        // Ghost scenario — narrative already shown in LoganScene, just apply stats
         update({ stats: newStats, loganDismissed: true, subScreen: 'quarterlySummary' });
       }
       return;
@@ -845,7 +846,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     }
 
     if (option === 'pe') {
-      const peItems = pickQuarterlyItems(gs.currentStageId);
+      const peItems = pickQuarterlyItems(gs.currentStageId, [], { characterId: gs.characterId, relationshipPartnerId: gs.relationshipPartnerId, relationshipStatus: gs.relationshipStatus });
       update({
         companyName:                'Darkstone & Partners',
         isPEPath:                   true,
@@ -982,7 +983,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       const pendingAfterPersonalDev = firePersonalDevNote ? baseNextSub : null;
 
       const nextStageId     = gs.currentStageId; // stage doesn't change mid-year
-      const newQuarterItems = pickQuarterlyItems(nextStageId);
+      const newQuarterItems = pickQuarterlyItems(nextStageId, [], { characterId: gs.characterId, relationshipPartnerId: gs.relationshipPartnerId, relationshipStatus: gs.relationshipStatus });
 
       update({
         stats: { ...gs.stats, wealth: newWealth },
@@ -1070,16 +1071,21 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       : {};
 
     if (newSanity <= 0) {
-      update({ stats: { ...gs.stats, sanity: 0 }, ...resetRel, ...extraReset });
+      update({ stats: { ...gs.stats, sanity: 0 }, ...resetRel, ...extraReset, pendingLoganRelationship: null });
       onEnding(gs.isRichLegacy ? 'backToFamilyBusiness' : 'mentalBreakdown');
       return;
     }
 
     const pendingSub = gs.pendingAfterBreakup || 'monthPicker';
+    const loganStart = gs.pendingLoganRelationship
+      ? { relationshipPartnerId: 'logan', relationshipStatus: 'entangled', relationshipIntimacy: INTIMACY_START.logan, firstEncounterId: 'logan', dateUnlocked: true }
+      : {};
     update({
       stats: { ...gs.stats, sanity: newSanity },
       ...resetRel,
       ...extraReset,
+      ...loganStart,
+      pendingLoganRelationship: null,
       subScreen: pendingSub,
     });
   };
@@ -1222,7 +1228,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       ? (gs.yearTwoDateChosen || false)
       : gs.dateUnlocked;
 
-    const newYearItems = pickQuarterlyItems(newStageId);
+    const newYearItems = pickQuarterlyItems(newStageId, [], { characterId: gs.characterId, relationshipPartnerId: gs.relationshipPartnerId, relationshipStatus: gs.relationshipStatus });
     update({
       currentYear: gs.currentYear + 1,
       currentQuarter: 1,
