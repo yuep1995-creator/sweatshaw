@@ -10,7 +10,20 @@ const LOGAN_DATA = {
     bgImage:   '/kitchen.png',
     doneLabel: 'Leave him to it',
     pages: [
-      `You're making coffee in the kitchen when Logan Sterling walks in — TMT group, your cohort from the summer internship. He's carrying a printed model and has the look of someone who hasn't slept since September and has decided this makes him interesting.\n\n"TMT is the most lucrative arm in the building — everyone knows it." He pours without looking. "My staffer told me I'm on the star analyst shortlist. Four-point-oh at Princeton. It's just — what happens next, you know?"`,
+      `The office kitchen is quiet. You're pouring a third coffee for the day when the door swings open with a little too much confidence.\n\nIt's Logan Sterling, arguably the most "memorable" guy from your summer analyst cohort. Logan comes from a privileged background and he makes sure everyone is aware of it. He graduated with a 4.0 GPA at Harvard, his parents are both senior MDs in Bulge Brackets — the guy ticks off every box for the song "finance, trust fund, 6' 5", blue eyes".\n\n"Hey [SURNAME], it's been a while, how's the IB life treating you?"`,
+      `"Me? Just closed a $1.7bn deal last week, so not bad. Honestly, I've been sitting in on deal calls since I was fourteen. So when I got here — I don't want to sound arrogant — but it wasn't exactly a learning curve. More like... confirmation."\n\nHe glanced at his Patek Philippe and wrapped up the conversation with a smile that didn't quite reach his eyes.\n\n"Time to get back to work."`,
+    ],
+    midChoices: [
+      {
+        id:      'lovingIt',
+        label:   '"Loving it." It\'s 5pm so just halfway through your day. You look forward to spending a long night over some comps.',
+        effects: { sanity: -5, competence: 5 },
+      },
+      {
+        id:      'cantComplain',
+        label:   '"Can\'t complain."',
+        effects: { charisma: 5 },
+      },
     ],
   },
   2: {
@@ -99,10 +112,11 @@ const LOGAN_DATA = {
 };
 
 export default function LoganScene({ gameState: gs, onDone }) {
-  const [page,     setPage]     = useState(0);
-  const [blink,    setBlink]    = useState(true);
-  const [fadeOut,  setFadeOut]  = useState(false);
-  const [revealed, setRevealed] = useState(false);
+  const [page,              setPage]              = useState(0);
+  const [blink,             setBlink]             = useState(true);
+  const [fadeOut,           setFadeOut]           = useState(false);
+  const [revealed,          setRevealed]          = useState(false);
+  const [midChoiceSelected, setMidChoiceSelected] = useState(null);
 
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), 800);
@@ -117,15 +131,25 @@ export default function LoganScene({ gameState: gs, onDone }) {
   const year  = gs.currentYear;
   const data  = LOGAN_DATA[year] ?? LOGAN_DATA[1];
   const pages = data.pages;
-  const isLast    = page === pages.length - 1;
+  const isLast     = page === pages.length - 1;
   const hasChoices = !!data.choices;
+  const hasMidChoices = !!data.midChoices && page === 0 && !midChoiceSelected;
 
   const handleDone = (choice = null) => {
     setFadeOut(true);
-    setTimeout(() => onDone(choice), 500);
+    const effectiveChoice = midChoiceSelected ?? choice;
+    setTimeout(() => onDone(effectiveChoice), 500);
   };
 
-  const lines = pages[page].split('\n');
+  const handleMidChoice = (c) => {
+    setMidChoiceSelected(c);
+    setPage(p => p + 1);
+  };
+
+  const surname = gs.characterName?.split(' ')[1] ?? '';
+  const processText = (text) => text.replace('[SURNAME]', surname);
+
+  const lines = processText(pages[page]).split('\n');
 
   return (
     <div className={`fe-screen${fadeOut ? ' fe-fadeout' : ''}`}
@@ -158,18 +182,28 @@ export default function LoganScene({ gameState: gs, onDone }) {
 
           <div className="fe-controls">
             {page > 0
-              ? <button className="fe-btn" onClick={() => setPage(p => p - 1)}>← Back</button>
+              ? <button className="fe-btn" onClick={() => { if (page === 1 && data.midChoices) setMidChoiceSelected(null); setPage(p => p - 1); }}>← Back</button>
               : <span />
             }
             <span className="fe-page-ind">{page + 1} / {pages.length}</span>
-            {!isLast
+            {!isLast && !hasMidChoices
               ? <button className="fe-btn" onClick={() => setPage(p => p + 1)}>Next →</button>
               : <span />
             }
           </div>
         </div>
 
-        {isLast && (
+        {hasMidChoices && (
+          <div className="logan-choices">
+            {data.midChoices.map(c => (
+              <button key={c.id} className="logan-choice-btn" onClick={() => handleMidChoice(c)}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {isLast && !hasMidChoices && (
           hasChoices ? (
             <div className="logan-choices">
               {data.choices.map(c => (
@@ -179,7 +213,7 @@ export default function LoganScene({ gameState: gs, onDone }) {
               ))}
             </div>
           ) : (
-            <button className="fe-done" onClick={() => handleDone(null)}>
+            <button className="fe-done" onClick={() => handleDone(midChoiceSelected)}>
               {data.doneLabel}
             </button>
           )

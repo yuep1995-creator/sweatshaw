@@ -130,7 +130,7 @@ const buildInitialGameState = (character, traits) => {
     cultureDefyingChoiceCount:  0,
     legacyPromotionCount:  0,
     legacyHireEventFired:  false,
-    dateHistory:           { jordan: 0, sam: 0, riley: 0, alex: 0 },
+    dateHistory:           {},
     consecutiveWeekendQuarters: 0,
     weekendThisQuarter:    false,
     sanityDroppedBelow25:  false,

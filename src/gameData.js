@@ -793,11 +793,11 @@ export const QUARTERLY_EVENTS = [
     id: 'loganY1',
     location: 'office',
     title: 'Kitchen Catch-Up',
-    text: `You're making coffee in the kitchen when Logan Sterling walks in — TMT group, your cohort from the summer internship. He's carrying a printed model and has the look of someone who hasn't slept since September and has decided this makes him interesting.\n\n"TMT is the most lucrative arm in the building — everyone knows it." He pours without looking. "My staffer told me I'm on the star analyst shortlist. Four-point-oh at Princeton. It's just — what happens next, you know?"`,
+    text: `The office kitchen is quiet. You're pouring a third coffee for the day when the door swings open with a little too much confidence.\n\nIt's Logan Sterling, arguably the most "memorable" guy from your summer analyst cohort. He graduated with a 4.0 GPA at Harvard, his parents are both senior MDs in Bulge Brackets — the guy ticks off every box for the song "finance, trust fund, 6' 5", blue eyes".\n\n"Hey, it's been a while, how's the IB life treating you?"\n\n...\n\n"Me? Just closed a $1.7bn deal last week, so not bad. Honestly, I've been sitting in on deal calls since I was fourteen. So when I got here — I don't want to sound arrogant — but it wasn't exactly a learning curve. More like... confirmation."\n\nHe glanced at his Patek Philippe and wrapped up the conversation with a smile that didn't quite reach his eyes. "Time to get back to work."`,
     loganQ4Only: true,
     choices: [
-      { label: 'Congratulate him. Make a mental note.', effects: { competence: 3 } },
-      { label: `"I've had a strong year myself, actually."`, effects: { charisma: 5 } },
+      { label: '"Loving it." It\'s 5pm — just halfway through your day.', effects: { sanity: -5, competence: 5 } },
+      { label: '"Can\'t complain."', effects: { charisma: 5 } },
     ],
   },
   {
