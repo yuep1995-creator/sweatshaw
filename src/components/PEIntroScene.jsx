@@ -40,7 +40,7 @@ export default function PEIntroScene({ onDone }) {
       />
       <div className="bi-overlay" />
 
-      <img src="/PEbossgrumpy.png" className="bi-boss" alt="" />
+      <img src="/pebossgrumpy.png" className="bi-boss" alt="" />
 
       <div className="bi-left-panel">
         <div className="bi-dialogue">

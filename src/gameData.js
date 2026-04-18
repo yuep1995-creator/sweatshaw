@@ -209,7 +209,7 @@ export const ACTIVITIES = [
     description: 'A live deal just landed. You know what that means.',
     category: 'Work',
     cost: 0,
-    effects: { competence: 8, reputation: 4, sanity: -10 },
+    effects: { competence: 10, reputation: 3, sanity: -10 },
     risk: { chance: 0.15, effect: { sanity: -5 }, label: 'Burnout Warning triggered.' },
   },
   {
@@ -229,7 +229,18 @@ export const ACTIVITIES = [
     description: '"Sure," you said. "Happy to help," you said.',
     category: 'Work',
     cost: 0,
-    effects: { reputation: 8, competence: 6, sanity: -12 },
+    effects: { reputation: 7, competence: 5, sanity: -12 },
+    stageOnly: ['analyst', 'associate'],
+  },
+  {
+    id: 'projectManagement',
+    icon: '📋',
+    name: 'Project Management',
+    description: 'Delegating work instead of doing them.',
+    category: 'Work',
+    cost: 0,
+    effects: { reputation: 8 },
+    stageOnly: ['vp', 'director'],
   },
   {
     id: 'slackLookBusy',
@@ -250,6 +261,19 @@ export const ACTIVITIES = [
     effects: { reputation: 5, charisma: 2, sanity: -4 },
     charismaScaled: true,
     socialActivity: true,
+    stageOnly: ['analyst', 'associate'],
+  },
+  {
+    id: 'playingPolitics',
+    icon: '🎭',
+    name: 'Playing Politics',
+    description: 'The higher you climb, the more this matters.',
+    category: 'Social',
+    cost: 200,
+    effects: { reputation: 8, charisma: 4, sanity: -15 },
+    charismaScaled: true,
+    socialActivity: true,
+    stageOnly: ['vp', 'director'],
   },
   {
     id: 'networkExternal',
@@ -261,6 +285,19 @@ export const ACTIVITIES = [
     effects: { charisma: 6, reputation: 3, sanity: -5 },
     charismaScaled: true,
     socialActivity: true,
+    stageOnly: ['analyst', 'associate'],
+  },
+  {
+    id: 'clientEntertainment',
+    icon: '🥂',
+    name: 'Client Entertainment',
+    description: 'Expensed dinners, box seats, and conversations you will barely remember.',
+    category: 'Social',
+    cost: 500,
+    effects: { charisma: 8, reputation: 4, sanity: -15 },
+    charismaScaled: true,
+    socialActivity: true,
+    stageOnly: ['vp', 'director'],
   },
   {
     id: 'linkedInPosting',
@@ -310,6 +347,7 @@ export const ACTIVITIES = [
     category: 'Recovery',
     cost: 2_500,
     effects: { sanity: -25 },
+    sanityByStage: { analyst: -25, associate: -30, vp: -35, director: -40 },
     q3Only: true,
     oncePerQuarter: true,
     gritGain: 5,
@@ -443,8 +481,8 @@ export const DATE_OPTIONS = [
     description: 'The ambitious TMT analyst from your internship cohort. High achiever. Higher opinion of himself.',
     dateCost: 500,
     requires: {},
-    effects: { competence: 10, sanity: -10 },
-    engagedEffects: { competence: 10, reputation: 10, sanity: -20 },
+    effects: { competence: 10, sanity: -5 },
+    engagedEffects: { competence: 10, reputation: 10, sanity: -5 },
     flavour: 'He mentioned his deal count twice. You let him. The food was excellent.',
     milestoneText: 'Logan texts to share an article. It is extremely well-timed. He knows it.',
     encounterOnly: true,
@@ -642,11 +680,46 @@ export const QUARTERLY_EVENTS = [
     ],
   },
   {
+    id: 'promotionTrap',
+    location: 'office',
+    title: 'Promotion Trap',
+    text: `It's 11:12pm on a Friday. You're the only one in the office kitchen waiting for the microwave to finish on what is technically your dinner. A senior MD walked in. You greeted him flatly, you worked together last quarter and noticed, more than once, that his eyes stayed on you a beat longer than they needed to. He leans over: "Accelerated promotion list is coming out next month. I've got some influence over it. We should grab a drink tonight — I think it could be good for you."`,
+    promotionTrapOnly: true,
+    onceOnly: true,
+    choices: [
+      {
+        id: 'accept',
+        label: 'Take on the offer, who doesn\'t like a free drink?',
+        effects: { reputation: -50, sanity: -25 },
+        isPromotionTrapAccept: true,
+        specialResultMessage: `Later that night, your phone buzzed with a calendar from HR. You\'ve been placed on the accelerated promotion list. You\'ll be made Associate at year-end.\n\nThe drink was exactly what you expected. You haven\'t thought about it since.\n\nOr so you tell yourself.`,
+      },
+      {
+        id: 'deflect',
+        label: 'Smile neutrally. Say you\'d love to discuss your promotion trajectory — and suggest a formal catch-up Monday, copying your line manager in the calendar invite.',
+        effects: { reputation: 5 },
+      },
+      {
+        id: 'report',
+        label: 'Write down the time, the location, the exact words used, and what he was wearing. Report to HR.',
+        effects: { reputation: 20 },
+        isPromotionTrapReport: true,
+        specialResultMessage: `Three days later, an email arrived from HR to the entire floor:\n\n"We write to let you know that [MD] has decided to leave Sweatshaw & Co due to health conditions. We thank him for his contributions and wish him well."\n\nHe never appeared in the office again.`,
+      },
+      {
+        id: 'flee',
+        label: 'Smile awkwardly, "Sorry... I really need to get back to work." Run away from the kitchen.',
+        effects: { sanity: -15 },
+      },
+    ],
+  },
+  {
     id: 'cryptoCrypto',
     location: 'office',
     title: 'Crypto Crypto Crypto',
     text: "Crypto is going through the roof and you came across a new coin called Memecoin from a colleague. How much are you putting in?",
     isCryptoEvent: true,
+    weight: 2,
     choices: [],
   },
   {
@@ -891,6 +964,21 @@ export const BADGES = {
 // GAME ENDINGS
 // ─────────────────────────────────────────────
 export const ENDINGS = {
+  walkOfShame: {
+    title: 'Walk of Shame.',
+    colour: '#ef4444',
+    text: (name, _stats, gs) => {
+      const pronoun = gs?.characterId === 'max' ? 'He'      : 'She';
+      const pron2   = gs?.characterId === 'max' ? 'he'      : 'she';
+      const pron3   = gs?.characterId === 'max' ? 'his'     : 'her';
+      const pron5   = gs?.characterId === 'max' ? 'himself' : 'herself';
+      return `The news moved faster than it should have.\n\nBy Monday morning, ${name} could feel it — the hallway glances that didn't quite land, conversations that paused a beat too long before resuming. Someone had seen something on Friday night. Someone always did.\n\nHR called ${name} in on Tuesday. The meeting was held in a conference room booked under a vague title, with two people from the team sitting across the table as though they'd rehearsed the arrangement. ${name} explained, carefully, that the evening had been a blur — too much wine, a moment ${pron2} didn't remember clearly, nothing ${pron2} had sought out or invited. ${pronoun} said it the way people say things when they need to be believed: slowly, and without embellishment.\n\nThe MD was gone by Friday. An all-staff email arrived at 11am: he had "decided to pursue opportunities outside the firm." No one said anything publicly. No one needed to.\n\n${name} kept ${pron3} job.\n\nWhat followed was harder to describe than losing it would have been. The promotion came through as expected — a small victory that landed in silence, acknowledged by no one with any warmth. In the open-plan office, ${pron2} would catch fragments: a lowered voice near the coffee machine, a laugh that cut off too quickly. ${pronoun} told ${pron5} ${pron2} was imagining it. ${pronoun} was not imagining it.\n\nThe breakdown, when it came, was not a single moment. It was a slow erosion — a Tuesday where ${pron2} sat at ${pron3} desk for two hours without opening a single file. A morning where the commute felt physically impossible. A call with a friend ${pron2} hadn't spoken to in months, during which ${pron2} said almost nothing and then stood in the work bathroom afterwards, not quite crying, not quite not.\n\n${pronoun} put in ${pron3} notice eight weeks after that Friday night. The letter was three sentences.`;
+    },
+    epilogue: (name, _sanity, gs) => {
+      const pron3 = gs?.characterId === 'max' ? 'his' : 'her';
+      return `${name} never mentioned it on ${pron3} CV. It was not the kind of thing that needed explaining.`;
+    },
+  },
   backToFamilyBusiness: {
     title: 'Back to the Family Business.',
     colour: '#d4a017',
@@ -900,7 +988,10 @@ export const ENDINGS = {
   burntOut: {
     title: 'Burnt Out.',
     colour: '#ef4444',
-    text: (name) => `${name} didn't mean to quit. Not really. There was no grand moment of clarity, no dramatic resignation speech.\n\nOne morning, the alarm went off. ${name} stared at the ceiling. Then set the alarm again. Then again.\n\nOn the third day, they emailed HR. The subject line said "personal leave." The body said almost nothing. The truth was simpler: there was nothing left.\n\nThe questions came later, in the silence that followed. What had it all been for? Was this what ambition was supposed to feel like when it ran out? The answers weren't forthcoming. But for the first time in years, there was time to sit with them.`,
+    text: (name, _stats, gs) => {
+      const pron2 = gs?.characterId === 'max' ? 'he' : 'she';
+      return `${name} didn't mean to quit. Not really. There was no grand moment of clarity, no dramatic resignation speech.\n\nOne morning, the alarm went off. ${name} stared at the ceiling. Then set the alarm again. Then again.\n\nOn the third day, ${pron2} emailed HR. The subject line said "personal leave." The body said almost nothing. The truth was simpler: there was nothing left.\n\nThe questions came later, in the silence that followed. What had it all been for? Was this what ambition was supposed to feel like when it ran out? The answers weren't forthcoming. But for the first time in years, there was time to sit with them.`;
+    },
     epilogue: 'The therapist helped. Slowly. So did sleep, and weekends that felt like actual weekends.',
   },
   friendsFO: {
@@ -911,7 +1002,10 @@ export const ENDINGS = {
       const pron3 = gs?.characterId === 'max' ? 'his' : 'her';
       return `${name} had done enough. The learning had been real — the modelling, the pressure, the education in how large institutions actually work. But at some point the learning stops and the enduring begins, and ${pron2} had crossed that line some time ago.\n\nThe decision to leave wasn't dramatic. ${name} told ${pron3} best friend from Wharton over dinner — the trust fund kid, the one who had always been more interested in the investing side than the banking side, who had spent the last year quietly talking about setting up a proper family office for the money that had been sitting in private bank accounts for two generations. He'd been waiting for someone to run it with.\n\n"I was going to call you this week," he said.\n\nThe new life was, objectively, very sweet. No more 8am huddle calls. No more getting yelled at for a typo on page 21. No more box-aligning, no more version control hell, no more Sunday-evening dread. Instead: a small team, a clear mandate, inbound deal flow from the private bank's network, and the occasional afternoon on the terrace with a very cold martini, reviewing a pitch deck at a pace that felt almost leisurely.\n\nThe money was different — not the salary, which was fine, but the orientation of it. This was capital that had already arrived. The job was stewardship. ${name} found, somewhat to ${pron3} surprise, that ${pron2} was rather good at it.`;
     },
-    epilogue: (name) => `The private bank sent a bottle of Sauternes when the first deal closed. ${name} didn't know what to do with it so they put it on the shelf. It's still there.`,
+    epilogue: (name, _sanity, gs) => {
+      const pron2 = gs?.characterId === 'max' ? 'he' : 'she';
+      return `The private bank sent a bottle of Sauternes when the first deal closed. ${name} didn't know what to do with it so ${pron2} put it on the shelf. It's still there.`;
+    },
   },
   upOrOut: {
     title: 'Up or Out.',
@@ -923,7 +1017,10 @@ export const ENDINGS = {
     title: 'The Permanent VP.',
     colour: '#8b90b0',
     text: (name) => `There is a particular kind of stuck that only exists inside a large institution.\n\n${name} became a VP and stayed one. Not through failure — the scores were fine, the reviews were adequate, the work was solid. But "solid" and "Director" are two different conversations, and the partners had made their calculation.\n\nThe salary was good. The title was respectable. The ceiling was visible from the desk.\n\nYears later, ${name} could still describe exactly how it felt to realise this was it. That the game had not ended — it had simply become a different game, one without a winning condition.`,
-    epilogue: 'The junior analysts called them "the institution." They meant it as a compliment. Probably.',
+    epilogue: (_name, _sanity, gs) => {
+      const pron5 = gs?.characterId === 'max' ? 'him' : 'her';
+      return `The junior analysts called ${pron5} "the institution." They meant it as a compliment. Probably.`;
+    },
   },
   headOfInternalStrategy: {
     title: 'Head of Internal Strategy.',
@@ -934,13 +1031,20 @@ export const ENDINGS = {
   professionalCoach: {
     title: 'The Professional Coach.',
     colour: '#a3e635',
-    text: (name) => `The promotion announcement was made on a Thursday morning. ${name}'s name was not in it.\n\nBy Friday afternoon, ${name} had handed in their notice.\n\nThe LinkedIn profile was updated over the weekend. The new headline read: "Performance Coach | Finance Consultant | Success Mindset Trainer | Supporting High Achievers." The banner was changed to something involving a sunrise. The profile photo was retaken in natural light.\n\nThe clientele built itself quickly — mostly analysts and associates from the same world ${name} had just left. Insecure overachievers who needed someone who truly understood the pressure. The services expanded fast: mental clarity sessions, fitness programming, boardroom politics navigation, relationship coaching for people whose relationships had quietly collapsed around their careers. ${name} understood all of it. ${name} had lived all of it.\n\nThe book came out eighteen months later. "Atomic Habits for the Ambitious." The cover was clean. The subtitle promised a system. The acknowledgements thanked the finance industry for the material.\n\nIt hit the WSJ bestseller list in its second week.`,
+    text: (name, _stats, gs) => {
+      const pron3 = gs?.characterId === 'max' ? 'his' : 'her';
+      return `The promotion announcement was made on a Thursday morning. ${name}'s name was not in it.\n\nBy Friday afternoon, ${name} had handed in ${pron3} notice.\n\nThe LinkedIn profile was updated over the weekend. The new headline read: "Performance Coach | Finance Consultant | Success Mindset Trainer | Supporting High Achievers." The banner was changed to something involving a sunrise. The profile photo was retaken in natural light.\n\nThe clientele built itself quickly — mostly analysts and associates from the same world ${name} had just left. Insecure overachievers who needed someone who truly understood the pressure. The services expanded fast: mental clarity sessions, fitness programming, boardroom politics navigation, relationship coaching for people whose relationships had quietly collapsed around their careers. ${name} understood all of it. ${name} had lived all of it.\n\nThe book came out eighteen months later. "Atomic Habits for the Ambitious." The cover was clean. The subtitle promised a system. The acknowledgements thanked the finance industry for the material.\n\nIt hit the WSJ bestseller list in its second week.`;
+    },
     epilogue: (name) => `The five-star reviews kept coming in. "Changed my life." "Finally, someone who gets it." ${name} read every one.`,
   },
   fire: {
     title: 'F.I.R.E.',
     colour: '#8b90b0',
-    text: (name) => `${name} had more than enough — more, honestly, than they knew what to do with.\n\nFor the better part of a year, the sanity numbers had been quietly, consistently low. Not a crisis. No dramatic collapse. Just a steady grey dimming that made every Tuesday feel like a Monday.\n\nOn a Wednesday morning, they submitted a leaving notice. HR acknowledged it with a calendar invite. No counteroffer was entertained. The farewell drinks were cordial. Someone said "we'll stay in touch" and everyone nodded. The role was posted internally the following week, and had someone in the seat in six.\n\n${name} landed in Bangkok with a carry-on bag and nothing scheduled. They moved slowly — temples, markets, a ten-day silent retreat in Chiang Mai they nearly abandoned on day three but didn't. They read things they'd bookmarked years ago. They learned what it felt like to not check the time.\n\nWhat came next remained an open question. A small bakery in lower Manhattan, maybe. Or a country where the savings outlast the ambition and the pace of life doesn't require a recovery plan. For now, the question itself felt like a luxury they had finally earned.`,
+    text: (name, _stats, gs) => {
+      const pronoun = gs?.characterId === 'max' ? 'He'  : 'She';
+      const pron2   = gs?.characterId === 'max' ? 'he'  : 'she';
+      return `${name} had more than enough — more, honestly, than ${pron2} knew what to do with.\n\nFor the better part of a year, the sanity numbers had been quietly, consistently low. Not a crisis. No dramatic collapse. Just a steady grey dimming that made every Tuesday feel like a Monday.\n\nOn a Wednesday morning, ${pron2} submitted a leaving notice. HR acknowledged it with a calendar invite. No counteroffer was entertained. The farewell drinks were cordial. Someone said "we'll stay in touch" and everyone nodded. The role was posted internally the following week, and had someone in the seat in six.\n\n${name} landed in Bangkok with a carry-on bag and nothing scheduled. ${pronoun} moved slowly — temples, markets, a ten-day silent retreat in Chiang Mai ${pron2} nearly abandoned on day three but didn't. ${pronoun} read things ${pron2}'d bookmarked years ago. ${pronoun} learned what it felt like to not check the time.\n\nWhat came next remained an open question. A small bakery in lower Manhattan, maybe. Or a country where the savings outlast the ambition and the pace of life doesn't require a recovery plan. For now, the question itself felt like a luxury ${pron2} had finally earned.`;
+    },
     epilogue: 'The Wi-Fi was unreliable in most places. That turned out to be fine.',
   },
   regulator: {
@@ -970,7 +1074,10 @@ export const ENDINGS = {
   madePartner: {
     title: 'Corner Office.',
     colour: '#d4a017',
-    text: (name) => `After years at Darkstone & Partners, ${name} made Partner.\n\nThe announcement came on a Tuesday. The equity split was favourable. The office had a view that required no explanation.\n\nPrivate equity rewards a specific kind of person. ${name} had always suspected they were that person. The carry distribution confirmed it.`,
+    text: (name, _stats, gs) => {
+      const pron2 = gs?.characterId === 'max' ? 'he' : 'she';
+      return `After years at Darkstone & Partners, ${name} made Partner.\n\nThe announcement came on a Tuesday. The equity split was favourable. The office had a view that required no explanation.\n\nPrivate equity rewards a specific kind of person. ${name} had always suspected ${pron2} was that person. The carry distribution confirmed it.`;
+    },
     epilogue: (_name, sanity) =>
       sanity > 70 ? 'The work was hard. The returns were real. Not every trade-off made sense at the time. Most of them do now.'
       : sanity > 40 ? 'The work was relentless. The money made the relentlessness easier to justify. Most days.'
@@ -990,7 +1097,13 @@ export const ENDINGS = {
   madeMD: {
     title: 'Managing Director.',
     colour: '#d4a017',
-    text: (name) => `The letter came on a Thursday. Managing Director, effective the first of the month.\n\n${name} read it twice, set it down, and went back to the deck they were working on. The announcement could wait twenty minutes.\n\nFifteen years. The title had always been there in the distance, the way landmarks look closer than they are. Then one morning it simply wasn't in the distance anymore. It was on a piece of paper. It was a signature. It was theirs.\n\nSweatshaw & Co said nothing had changed, which was technically true and practically meaningless. Everything had changed. The way people walked into meetings. The calls that got returned. The decisions that no longer needed sign-off from anyone in the building.\n\nThree weeks after the announcement, ${name} was asked to give a short address to the new intake of graduate analysts.\n\nSixty-two of them. Eager, well-dressed, slightly terrified in the particular way of people who have studied very hard for something and are only now realising the studying had barely started. ${name} looked out at them and recognised something — not themselves exactly, but the posture. The hunger. The careful, calibrated nerves behind polished expressions.\n\n"This is a genuinely extraordinary career," ${name} said. "I mean that without irony. What you will learn here, what you will be tested by, what you will become — there's very little like it."\n\nA pause.\n\n"Out of the cohort in this room, statistically, one of you will make Managing Director."\n\nThey had expected something more encouraging. ${name} could see the recalibration moving through the room — the quiet arithmetic, the sudden awareness of the sixty-one people sitting nearby.\n\n"I want you to understand that not as a discouragement," ${name} continued. "I want you to understand it the way I eventually did: as a reason to pay attention. To every room you're in. Every decision you make. Every year that passes."\n\nThe applause was polite. A few of them, ${name} noticed, were already scanning the room for the edge that might make them the one.\n\n${name} had worn the same expression, fifteen years ago, sitting at the back of a room exactly like this one.`,
+    text: (name, _stats, gs) => {
+      const pron2   = gs?.characterId === 'max' ? 'he'      : 'she';
+      const pron3   = gs?.characterId === 'max' ? 'his'     : 'her';
+      const pron4   = gs?.characterId === 'max' ? 'his'     : 'hers';
+      const pron5   = gs?.characterId === 'max' ? 'himself' : 'herself';
+      return `The letter came on a Thursday. Managing Director, effective the first of the month.\n\n${name} read it twice, set it down, and went back to the deck ${pron2} was working on. The announcement could wait twenty minutes.\n\nFifteen years. The title had always been there in the distance, the way landmarks look closer than they are. Then one morning it simply wasn't in the distance anymore. It was on a piece of paper. It was a signature. It was ${pron4}.\n\nSweatshaw & Co said nothing had changed, which was technically true and practically meaningless. Everything had changed. The way people walked into meetings. The calls that got returned. The decisions that no longer needed sign-off from anyone in the building.\n\nThree weeks after the announcement, ${name} was asked to give a short address to the new intake of graduate analysts.\n\nSixty-two of them. Eager, well-dressed, slightly terrified in the particular way of people who have studied very hard for something and are only now realising the studying had barely started. ${name} looked out at them and recognised something — not ${pron5} exactly, but the posture. The hunger. The careful, calibrated nerves behind polished expressions.\n\n"This is a genuinely extraordinary career," ${name} said. "I mean that without irony. What you will learn here, what you will be tested by, what you will become — there's very little like it."\n\nA pause.\n\n"Out of the cohort in this room, statistically, one of you will make Managing Director."\n\nThey had expected something more encouraging. ${name} could see the recalibration moving through the room — the quiet arithmetic, the sudden awareness of the sixty-one people sitting nearby.\n\n"I want you to understand that not as a discouragement," ${name} continued. "I want you to understand it the way I eventually did: as a reason to pay attention. To every room you're in. Every decision you make. Every year that passes."\n\nThe applause was polite. A few of them, ${name} noticed, were already scanning the room for the edge that might make them the one.\n\n${name} had worn the same expression, fifteen years ago, sitting at the back of a room exactly like this one.`;
+    },
     epilogue: (_name, sanity) =>
       sanity > 70 ? 'The title is real. So is the work. Neither of those things are going away. That is, on balance, fine.'
       : sanity > 40 ? 'Managing Director. The words look right on the door. The hours remain what they were. You\'re working on that.'
@@ -1012,18 +1125,22 @@ export const ENDINGS = {
     colour: '#ef4444',
     isBankruptcy: true,
     text: (name, stats, gs) => {
+      const pronoun = gs?.characterId === 'max' ? 'He'  : 'She';
+      const pron2   = gs?.characterId === 'max' ? 'he'  : 'she';
+      const pron3   = gs?.characterId === 'max' ? 'his' : 'her';
+
       const p1 = `The direct debit failed on a Tuesday morning.\n${name} knew before the notification arrived — had known for a few weeks, really, in the way you know things you are not ready to deal with.\nThe letting agent's email was polite. It always is, at first.`;
 
       let p2 = '';
       if ((stats?.competence ?? 0) > 60) {
-        p2 = `The frustrating thing — the part that kept ${name} up at night — was that they were good at the job. Genuinely good. The work was never the problem. The numbers just hadn't kept up with the city, with the rent, with the version of life that Sweatshaw & Co quietly required you to maintain.`;
+        p2 = `The frustrating thing — the part that kept ${name} up at night — was that ${pron2} was good at the job. Genuinely good. The work was never the problem. The numbers just hadn't kept up with the city, with the rent, with the version of life that Sweatshaw & Co quietly required you to maintain.`;
       } else if ((stats?.sanity ?? 100) < 30) {
-        p2 = `Looking back, the money was the last thing to go. Everything else had already been quietly leaving for months — the sleep, the appetite for it, the ability to care about the things they were supposed to care about. The bank balance was just the last domino.`;
+        p2 = `Looking back, the money was the last thing to go. Everything else had already been quietly leaving for months — the sleep, the appetite for it, the ability to care about the things ${pron2} was supposed to care about. The bank balance was just the last domino.`;
       }
 
       let p2b = '';
       if (gs?.isRichLegacy) {
-        p2b = `There would be a call to make, eventually. To someone who would answer on the second ring and not say I told you so, at least not immediately. ${name} was not ready to make that call. They sat with their phone face-down on the table for a very long time.`;
+        p2b = `There would be a call to make, eventually. To someone who would answer on the second ring and not say I told you so, at least not immediately. ${name} was not ready to make that call. ${pronoun} sat with ${pron3} phone face-down on the table for a very long time.`;
       }
 
       let p3 = '';
@@ -1031,7 +1148,7 @@ export const ENDINGS = {
       if (rep > 60) {
         p3 = `A former colleague called within the week. There was contract work, if ${name} wanted it. People remembered the good years. That turned out to matter more than expected.`;
       } else {
-        p3 = `The industry was smaller than it looked from the inside. ${name} learned this the slow way. They pivoted eventually — something adjacent, something quieter. It was fine. Fine was enough for a while.`;
+        p3 = `The industry was smaller than it looked from the inside. ${name} learned this the slow way. ${pronoun} pivoted eventually — something adjacent, something quieter. It was fine. Fine was enough for a while.`;
       }
 
       const p4 = `Sweatshaw & Co filled the position within six weeks. The new hire sat at the same desk. They did not know whose it had been. That is how it works.`;
@@ -1043,7 +1160,11 @@ export const ENDINGS = {
   startupBust: {
     title: 'Zero to Zero.',
     colour: '#8b90b0',
-    text: (name) => `${name} joined the startup with a lot of conviction and a cap table that, in retrospect, should have raised questions.\n\nThe idea wasn't bad. The timing wasn't catastrophic. The execution — somewhere between the pivot and the re-pivot — is where things became difficult to explain at dinner parties.\n\nThey ran out of runway on a Friday. The final all-hands was on a Google Meet. Seventeen people. The CEO said the word "learnings" four times.\n\nBack at a desk that wasn't theirs, in an office that smelled like every other office, ${name} updated a CV that now had an eighteen-month gap labelled "Founder." That turned out to mean more than expected — just not in the way expected.`,
+    text: (name, _stats, gs) => {
+      const pronoun = gs?.characterId === 'max' ? 'He'   : 'She';
+      const pron4   = gs?.characterId === 'max' ? 'his'  : 'hers';
+      return `${name} joined the startup with a lot of conviction and a cap table that, in retrospect, should have raised questions.\n\nThe idea wasn't bad. The timing wasn't catastrophic. The execution — somewhere between the pivot and the re-pivot — is where things became difficult to explain at dinner parties.\n\n${pronoun} ran out of runway on a Friday. The final all-hands was on a Google Meet. Seventeen people. The CEO said the word "learnings" four times.\n\nBack at a desk that wasn't ${pron4}, in an office that smelled like every other office, ${name} updated a CV that now had an eighteen-month gap labelled "Founder." That turned out to mean more than expected — just not in the way expected.`;
+    },
     epilogue: 'The next job came through a former colleague who said the startup experience showed "initiative." It did, technically.',
   },
   startupSuccess: {
@@ -1055,7 +1176,12 @@ export const ENDINGS = {
   mentalBreakdown: {
     title: 'Mental Breakdown.',
     colour: '#ef4444',
-    text: (name) => `The relationship ending was the last straw.\n\n${name} had been running on fumes for longer than they would admit — the kind of tired that sleep doesn't fix, the kind of empty that no deal or promotion reaches. The loss was the crack that let everything else in.\n\nThey called in sick on a Monday. Then Tuesday. By Wednesday, they stopped checking their phone. The out-of-office wasn't set. Nobody set it for two days.\n\nWhen ${name} finally opened their laptop, there was a calendar invite from HR. Subject: "Check-in." The kind of meeting that has a format and a conclusion already drafted before it begins.\n\nThe conversation was careful, measured, humane in the way large institutions are when they have practised it. The word "wellbeing" appeared four times. The phrase "not a fit right now" appeared once.\n\nHR suggested that perhaps it was best, for everyone, if ${name} took some time. There was a leave package. There was a therapist referral. There was a card signed by the team that said nothing specific and everything general.\n\nOutside the building, ${name} stood on the pavement for a long time. The city moved. ${name} didn't.\n\nFor the first time in years, there was nothing to do. No meeting to prepare for. No deck to revise. No number to hit.\n\nJust a question that had been waiting very patiently in the back of every late night and missed anniversary and unanswered message:\n\nWhat was it all for?`,
+    text: (name, _stats, gs) => {
+      const pronoun = gs?.characterId === 'max' ? 'He'  : 'She';
+      const pron2   = gs?.characterId === 'max' ? 'he'  : 'she';
+      const pron3   = gs?.characterId === 'max' ? 'his' : 'her';
+      return `The relationship ending was the last straw.\n\n${name} had been running on fumes for longer than ${pron2} would admit — the kind of tired that sleep doesn't fix, the kind of empty that no deal or promotion reaches. The loss was the crack that let everything else in.\n\n${pronoun} called in sick on a Monday. Then Tuesday. By Wednesday, ${pron2} stopped checking ${pron3} phone. The out-of-office wasn't set. Nobody set it for two days.\n\nWhen ${name} finally opened ${pron3} laptop, there was a calendar invite from HR. Subject: "Check-in." The kind of meeting that has a format and a conclusion already drafted before it begins.\n\nThe conversation was careful, measured, humane in the way large institutions are when they have practised it. The word "wellbeing" appeared four times. The phrase "not a fit right now" appeared once.\n\nHR suggested that perhaps it was best, for everyone, if ${name} took some time. There was a leave package. There was a therapist referral. There was a card signed by the team that said nothing specific and everything general.\n\nOutside the building, ${name} stood on the pavement for a long time. The city moved. ${name} didn't.\n\nFor the first time in years, there was nothing to do. No meeting to prepare for. No deck to revise. No number to hit.\n\nJust a question that had been waiting very patiently in the back of every late night and missed anniversary and unanswered message:\n\nWhat was it all for?`;
+    },
     epilogue: 'The therapist had a whiteboard and a calm voice. The answer took longer than expected. The question, it turned out, was worth asking.',
   },
   headOfCorpDev: {
@@ -1131,7 +1257,7 @@ export const EXTENSION_ENDINGS = {
     bg: '/eeducation.png',
     music: '/legacy.mp3',
     triggeredBy: ['burntOut', 'upOrOut'],
-    condition: (gs) => (gs.baseTraits?.intelligence ?? 0) > 50,
+    condition: (gs) => (gs.baseTraits?.intelligence ?? 0) > 50 && (gs.currentYear ?? 0) > 2,
     text: (name, _stats, gs) => {
       const pronoun  = gs?.characterId === 'max' ? 'He'  : 'She';
       const pron2    = gs?.characterId === 'max' ? 'he'  : 'she';

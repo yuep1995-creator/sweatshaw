@@ -30,6 +30,7 @@ import { ACTIVITIES, DATE_OPTIONS, CAREER_STAGES } from '../gameData';
 import { pickQuarterlyItems, PARTNER_GENDER } from '../gameItems';
 import LoganScene from './LoganScene';
 import PersonalDevNote from './PersonalDevNote';
+import BonusEvent from './BonusEvent';
 
 const STAT_COLOURS = {
   competence: '#4f6ef7', charisma: '#a78bfa',
@@ -108,6 +109,7 @@ function getHighStatColour(value) {
 
 function getPortrait(characterId, sanity) {
   const base = characterId === 'paige' ? 'paige' : 'max';
+  if (sanity < 4)  return `/${base === 'paige' ? 'clownpaige' : 'clownmax'}.png`;
   if (sanity < 20) return `/${base === 'paige' ? 'zombiepaige' : 'zombiemax'}.png`;
   if (sanity < 30) return `/${base === 'paige' ? 'tiredpaige' : 'tiredmax'}.png`;
   return `/${base}.png`;
@@ -339,6 +341,29 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     });
   };
 
+  // ── ONE-OFF BONUS EVENT PICKER ────────────────────────────────────────────
+  const pickOneOffBonusEvent = (stageId, stageYear, quarter, isPEPath, seen) => {
+    if (isPEPath) {
+      if (stageId === 'vp'       && stageYear === 2 && quarter === 2 && !seen.includes('peSyntheticCarry')) return 'peSyntheticCarry';
+      if (stageId === 'director' && stageYear === 3 && quarter === 2 && !seen.includes('peCarry'))         return 'peCarry';
+    } else {
+      if (stageId === 'vp' && stageYear === 3 && quarter === 4 && !seen.includes('ibChristmasBonus')) return 'ibChristmasBonus';
+    }
+    return null;
+  };
+
+  // ── BONUS EVENT ACCEPTED ─────────────────────────────────────────────────
+  const handleBonusEventDone = (net, gross, taxWithheld) => {
+    update({
+      stats:            { ...gs.stats, wealth: gs.stats.wealth + net },
+      seenBonusEvents:  [...(gs.seenBonusEvents || []), gs.pendingBonusEventId],
+      pendingOneOffBonus: { gross, net, taxWithheld },
+      pendingBonusEventId: null,
+      subScreen:        gs.pendingAfterBonusEvent || 'quarterlyEvent',
+      pendingAfterBonusEvent: null,
+    });
+  };
+
   // ── ACTIVITY CHOSEN ──────────────────────────────────────────────────────
   const handleActivityChosen = (activityDef) => {
     if (activityDef.requiresDateFromYear && gs.currentYear >= activityDef.requiresDateFromYear) {
@@ -408,10 +433,15 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     // --- 20% chance pitch is a success — doubles bonus contribution this quarter
     const pitchSuccess = activityDef.id === 'pitchClients' && Math.random() < 0.20;
 
+    // --- Apply stage-specific sanity override (e.g. NYC Marathon scales by stage)
+    const stagedDef = resolvedDef.sanityByStage && resolvedDef.sanityByStage[gs.currentStageId] != null
+      ? { ...resolvedDef, effects: { ...resolvedDef.effects, sanity: resolvedDef.sanityByStage[gs.currentStageId] } }
+      : resolvedDef;
+
     // --- Process activity stat effects via trait multipliers (returns raw/unclamped)
     const statsBefore = gs.stats;
     const { rawStats, effects: actEffects, riskMessage: baseRiskMessage } =
-      processActivity(resolvedDef, { ...statsBefore, wealth: newWealth }, m, gs.currentYear);
+      processActivity(stagedDef, { ...statsBefore, wealth: newWealth }, m, gs.currentYear);
     const riskMessage = pitchSuccess
       ? `Pitch landed. Bonus contribution doubled this year.${baseRiskMessage ? ` ${baseRiskMessage}` : ''}`
       : baseRiskMessage;
@@ -421,7 +451,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     if (rawStats.sanity < 0 && !gs.isRichLegacy) {
       const displayStats = clampStats({ ...rawStats, sanity: 0 });
       update({ stats: displayStats });
-      onEnding('burntOut');
+      onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
       return;
     }
 
@@ -561,13 +591,6 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         return;
       }
 
-      // Quarter over — check Mummy's Help, then quarterly event
-      const showMummysHelp =
-        gs.isRichLegacy &&
-        finalStats.wealth < 10_000 &&
-        gs.mummysHelpCount < 3 &&
-        !gs.pendingMummysHelp;
-
       // Marathon scene injection: if marathon was chosen in Q3, fire marathonScene first
       const marathonChosen = gs.currentQuarter === 3 && newMonthActivities.includes('nycMarathon');
       const withMarathon = (obj) => {
@@ -598,47 +621,40 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       // Determine the intended next subscreen (may be deferred for date conversation)
       const hadDateThisQuarter = newMonthActivities.includes('goOnDate');
 
-      if (showMummysHelp) {
-        const intendedSubScreen = newSleepInChosen ? 'sleepInScene' : 'specialEvent';
-        const pendingSleep      = newSleepInChosen ? 'specialEvent' : null;
-        if (hadDateThisQuarter && gs.firstEncounterId) {
-          update(withMarathon({
-            ...baseUpdate,
-            specialEventType: 'mummysHelp',
-            pendingSleepNext: pendingSleep,
-            pendingAfterDate: { subScreen: intendedSubScreen, specialEventType: 'mummysHelp', pendingSleepNext: pendingSleep },
-            subScreen: 'dateConversation',
-          }));
-        } else {
-          update(withMarathon({
-            ...baseUpdate,
-            specialEventType: 'mummysHelp',
-            ...(newSleepInChosen
-              ? { pendingSleepNext: 'specialEvent', subScreen: 'sleepInScene' }
-              : { subScreen: 'specialEvent' }),
-          }));
-        }
+      const event = resolveEvent(pickQuarterlyEvent(gs.currentYear, gs.currentQuarter, gs.currentStageId, hasActiveRelationship(gs), gs.activityLog.some(a => a.year === gs.currentYear && a.quarter === gs.currentQuarter && a.activityId === 'therapy'), gs.seenOnceEvents || [], gs.urgentClientOption1Chosen && !(gs.seenOnceEvents || []).includes('headhunterFollowUp') && (gs.currentYear * 4 + gs.currentQuarter) >= ((gs.urgentClientChosenYear || 0) * 4 + (gs.urgentClientChosenQuarter || 0) + 2), { loganDismissed: gs.loganDismissed || false, isPEPath: gs.isPEPath || false, looks: gs.baseTraits?.looks ?? 0 }), gs);
+
+      const { stageYear } = getStageInfo(gs.currentYear);
+      const bonusEventId  = pickOneOffBonusEvent(gs.currentStageId, stageYear, gs.currentQuarter, gs.isPEPath || false, gs.seenBonusEvents || []);
+
+      // Wrap: bonus event fires right before quarterlyEvent
+      const withBonusEvent = (obj) => {
+        if (!bonusEventId) return obj;
+        const o = { ...obj, pendingBonusEventId: bonusEventId, pendingAfterBonusEvent: 'quarterlyEvent' };
+        if (o.subScreen === 'quarterlyEvent')                              o.subScreen = 'bonusEvent';
+        if (o.pendingSleepNext === 'quarterlyEvent')                       o.pendingSleepNext = 'bonusEvent';
+        if (o.pendingAfterDate?.subScreen === 'quarterlyEvent')            o.pendingAfterDate = { ...o.pendingAfterDate, subScreen: 'bonusEvent' };
+        if (o.pendingAfterDate?.pendingSleepNext === 'quarterlyEvent')     o.pendingAfterDate = { ...o.pendingAfterDate, pendingSleepNext: 'bonusEvent' };
+        return o;
+      };
+
+      const intendedSubScreen = newSleepInChosen ? 'sleepInScene' : 'quarterlyEvent';
+      const pendingSleep      = newSleepInChosen ? 'quarterlyEvent' : null;
+      if (hadDateThisQuarter && gs.firstEncounterId) {
+        update(withBonusEvent(withMarathon({
+          ...baseUpdate,
+          currentEvent: event,
+          pendingSleepNext: pendingSleep,
+          pendingAfterDate: { subScreen: intendedSubScreen, currentEvent: event, pendingSleepNext: pendingSleep },
+          subScreen: 'dateConversation',
+        })));
       } else {
-        const event = resolveEvent(pickQuarterlyEvent(gs.currentYear, gs.currentQuarter, gs.currentStageId, hasActiveRelationship(gs), gs.activityLog.some(a => a.year === gs.currentYear && a.quarter === gs.currentQuarter && a.activityId === 'therapy'), gs.seenOnceEvents || [], gs.urgentClientOption1Chosen && !(gs.seenOnceEvents || []).includes('headhunterFollowUp') && (gs.currentYear * 4 + gs.currentQuarter) >= ((gs.urgentClientChosenYear || 0) * 4 + (gs.urgentClientChosenQuarter || 0) + 2), { loganDismissed: gs.loganDismissed || false, isPEPath: gs.isPEPath || false }), gs);
-        const intendedSubScreen = newSleepInChosen ? 'sleepInScene' : 'quarterlyEvent';
-        const pendingSleep      = newSleepInChosen ? 'quarterlyEvent' : null;
-        if (hadDateThisQuarter && gs.firstEncounterId) {
-          update(withMarathon({
-            ...baseUpdate,
-            currentEvent: event,
-            pendingSleepNext: pendingSleep,
-            pendingAfterDate: { subScreen: intendedSubScreen, currentEvent: event, pendingSleepNext: pendingSleep },
-            subScreen: 'dateConversation',
-          }));
-        } else {
-          update(withMarathon({
-            ...baseUpdate,
-            currentEvent: event,
-            ...(newSleepInChosen
-              ? { pendingSleepNext: 'quarterlyEvent', subScreen: 'sleepInScene' }
-              : { subScreen: 'quarterlyEvent' }),
-          }));
-        }
+        update(withBonusEvent(withMarathon({
+          ...baseUpdate,
+          currentEvent: event,
+          ...(newSleepInChosen
+            ? { pendingSleepNext: 'quarterlyEvent', subScreen: 'sleepInScene' }
+            : { subScreen: 'quarterlyEvent' }),
+        })));
       }
     }
   };
@@ -678,6 +694,14 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     if (effects.reputation > 0) effects.reputation  = Math.round(effects.reputation * (m.reputationMultiplier || 1));
 
     Object.entries(effects).forEach(([k, v]) => { finalStats[k] = (finalStats[k] || 0) + v; });
+
+    // Sanity floor check from quarterly event effects
+    if (finalStats.sanity < 0 && !gs.isRichLegacy) {
+      update({ stats: { ...finalStats, sanity: 0 } });
+      onEnding(choice.isPromotionTrapAccept || gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+      return;
+    }
+
     finalStats = clampStats(finalStats);
 
     // Log wealth cost from event choice
@@ -693,21 +717,22 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     // ─── Compute quarterly salary ──────────────────────────────────────────
     const salMult      = gs.salaryMultiplier || 1;
     const salaryInfo   = getQuarterlySalary(gs.currentStageId);
-    const salaryNet    = Math.round(salaryInfo.net * salMult);
-    let totalDeposited = salaryNet;
+    const salaryGross  = Math.round(salaryInfo.gross * salMult);
+    const salaryTax    = Math.round(salaryGross * salaryInfo.taxRate);
+    const salaryNet    = salaryGross - salaryTax;
+    let totalDeposited   = salaryNet;
+    let totalGrossEarned = (gs.totalGrossEarned || 0) + salaryGross;
 
     // Q4 annual bonus
     let bonusInfo = null;
     if (gs.currentQuarter === 4) {
-      const rawBonus = computeAnnualBonus(gs.currentStageId, gs.activityLog, gs.currentYear);
-      bonusInfo      = { ...rawBonus, net: Math.round(rawBonus.net * salMult) };
-      totalDeposited += bonusInfo.net;
+      const rawBonus   = computeAnnualBonus(gs.currentStageId, gs.activityLog, gs.currentYear);
+      const bonusGross = Math.round(rawBonus.gross * salMult);
+      const bonusTax   = Math.round(bonusGross * rawBonus.taxRate);
+      bonusInfo        = { ...rawBonus, gross: bonusGross, taxWithheld: bonusTax, net: bonusGross - bonusTax };
+      totalDeposited  += bonusInfo.net;
+      totalGrossEarned += bonusGross;
 
-      // mustRepayMum repayment at Q4
-      if (gs.mustRepayMum) {
-        finalStats.wealth = Math.max(0, (finalStats.wealth || 0) - 50_000);
-        newExpensesLog.push({ label: "Repaid Mum's loan", amount: 50_000 });
-      }
     }
 
     finalStats.wealth = Math.min(99_999_999, (finalStats.wealth || 0) + totalDeposited);
@@ -715,6 +740,10 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     // Lifestyle deduction
     const lifestyleCost = getQuarterlyLifestyle(gs.currentStageId, gs.isRichLegacy);
     finalStats.wealth = Math.max(0, finalStats.wealth - lifestyleCost);
+
+    // Rich Legacy Mummy's Help: fires after all deductions, wealth < $50k
+    const mumFired = gs.isRichLegacy && finalStats.wealth < 50_000;
+    if (mumFired) finalStats.wealth += 1_000_000;
 
     // Flat quarterly sanity bonus from housing
     const housingBonus = getHousingQuarterlySanityBonus(gs.housingTier);
@@ -730,14 +759,14 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       lifestyleCost,
       activityExpenses:    gs.quarterlyExpensesLog.reduce((s, e) => s + e.amount, 0)
                            + (effects.wealth && effects.wealth < 0 ? Math.abs(effects.wealth) : 0),
-      gross:               salaryInfo.gross,
+      gross:               salaryGross,
       taxRate:             salaryInfo.taxRate,
-      taxWithheld:         salaryInfo.taxWithheld,
-      net:                 salaryInfo.net,
+      taxWithheld:         salaryTax,
+      net:                 salaryNet,
       bonusInfo,
+      oneOffBonusInfo:     gs.pendingOneOffBonus || null,
       totalDeposited,
       closingBalance:      finalStats.wealth,
-      mustRepayMumRepaid:  gs.currentQuarter === 4 && gs.mustRepayMum,
     };
 
     const relationshipUpdates = intimacyDelta !== 0 ? computeRelationshipUpdates(gs, intimacyDelta) : {};
@@ -756,6 +785,10 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
     const fullQuarterDelta = mergeDeltas(gs.quarterlyStatDelta || {}, effects);
 
+    const promotionTrapUpdates = choice.isPromotionTrapAccept
+      ? { forcedAcceleratedPromotion: true, walkOfShamePending: true }
+      : {};
+
     const commonUpdate = {
       stats: finalStats,
       eventDChoiceCount,
@@ -765,10 +798,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       quarterlyStatDelta: fullQuarterDelta,
       salarySummary,
       quarterlyExpensesLog: newExpensesLog,
-      mustRepayMum: gs.currentQuarter === 4 && gs.mustRepayMum ? false : gs.mustRepayMum,
+      totalGrossEarned: totalGrossEarned + (choice.cryptoGrossGain || 0),
+      pendingOneOffBonus: null,
       ...relationshipUpdates,
       ...seenOnceUpdates,
       ...urgentClientUpdates,
+      ...promotionTrapUpdates,
     };
 
     // After the quarterly event, check if the Logan scene should fire next
@@ -777,7 +812,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       && !gs.loganDismissed
       && !gs.isPEPath;
 
-    update({ ...commonUpdate, subScreen: loganFires ? 'loganScene' : 'quarterlySummary' });
+    const afterMummyScreen = loganFires ? 'loganScene' : 'quarterlySummary';
+    if (mumFired) {
+      update({ ...commonUpdate, subScreen: 'mummysHelpNotice', pendingAfterMummysHelp: afterMummyScreen });
+    } else {
+      update({ ...commonUpdate, subScreen: afterMummyScreen });
+    }
   };
 
   // ── LOGAN SCENE DONE ─────────────────────────────────────────────────────
@@ -798,6 +838,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
     let newStats = { ...gs.stats };
     Object.entries(raw).forEach(([k, v]) => { newStats[k] = (newStats[k] || 0) + v; });
+
+    if (newStats.sanity < 0 && !gs.isRichLegacy) {
+      update({ stats: clampStats({ ...newStats, sanity: 0 }) });
+      onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+      return;
+    }
     newStats = clampStats(newStats);
 
     if (choice.isLoganY2 || choice.isLoganY3) {
@@ -825,6 +871,14 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     update({ stats: newStats, loganDismissed: true, subScreen: 'quarterlySummary' });
   };
 
+  // ── MUMMY'S HELP NOTICE DONE ─────────────────────────────────────────────
+  const handleMummysHelpDone = () => {
+    update({
+      pendingAfterMummysHelp: null,
+      subScreen: gs.pendingAfterMummysHelp || 'quarterlySummary',
+    });
+  };
+
   // ── PERSONAL DEV NOTE DONE ───────────────────────────────────────────────
   const handlePersonalDevNoteDone = (option) => {
     if (option === 'startup') {
@@ -835,7 +889,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     }
 
     if (option === 'sabotage') {
-      const rawStats   = applyEffects(gs.stats, { competence: 40, sanity: -30 }, gs.traitMultipliers, gs.currentYear);
+      const rawStats = applyEffects(gs.stats, { competence: 40, sanity: -30 }, gs.traitMultipliers, gs.currentYear);
+      if (rawStats.sanity < 0 && !gs.isRichLegacy) {
+        update({ stats: clampStats({ ...rawStats, sanity: 0 }) });
+        onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+        return;
+      }
       const finalStats = clampStats(rawStats);
       update({
         stats: finalStats,
@@ -937,7 +996,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
       // Deduct next quarter's rent
       const rent      = getQuarterlyRent(gs.housingTier, gs.mansionOwned);
-      const newWealth = gs.stats.wealth - rent;
+      let newWealth = gs.stats.wealth - rent;
 
       if (newWealth < 0) {
         update({ stats: { ...gs.stats, wealth: 0 } });
@@ -945,8 +1004,8 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         return;
       }
 
-      const triggerMummy =
-        gs.isRichLegacy && newWealth < 10_000 && gs.mummysHelpCount < 3;
+      // Rich Legacy wealth floor: never start a quarter below $50k
+      if (gs.isRichLegacy && newWealth < 50_000) newWealth = 50_000;
 
       const needsEncounter = gs.currentYear === 2 && gs.currentQuarter === 1
         && !gs.firstEncounterDone;
@@ -1000,7 +1059,6 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         quarterlyRentPaid: rent,
         quarterlyExpensesLog: [],
         quarterlyStatDelta: {},
-        pendingMummysHelp: triggerMummy ? true : gs.pendingMummysHelp,
         sleepInChosenThisQuarter: false,
         quarterlyItems: newQuarterItems,
         itemPurchasedThisQuarter: false,
@@ -1063,6 +1121,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       weddingQuarter:                      null,
       breakupEventType:                    null,
       pendingAfterBreakup:                 null,
+      firstEncounterId:                    null,
     };
 
     const earlyGhosted = gs.breakupEventType === 'earlyGhosted';
@@ -1177,7 +1236,10 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   // ── ANNUAL REVIEW DONE → HOUSING SELECT ──────────────────────────────────
   const handleAnnualReviewDone = (choice) => {
-    const { promotionResult } = gs.annualData;
+    const rawPromoResult = gs.annualData?.promotionResult;
+    const promotionResult = gs.forcedAcceleratedPromotion && rawPromoResult?.type === 'fail'
+      ? { ...rawPromoResult, type: 'accelerated' }
+      : rawPromoResult;
     let newStageId           = gs.currentStageId;
     let legacyPromotionCount = gs.legacyPromotionCount;
     let titlesEarned         = [...gs.titlesEarned];
@@ -1241,6 +1303,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       quarterEndSanities: [],
       sanityDroppedBelow25: false,
       annualData: null,
+      forcedAcceleratedPromotion: false,
       dateUnlocked: newDateUnlocked,
       yearTwoDateChosen: false,
       quarterlyStatDelta: {},
@@ -1277,18 +1340,17 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       return;
     }
 
-    const triggerMummy =
-      gs.isRichLegacy && newWealth < 10_000 && gs.mummysHelpCount < 3;
+    // Rich Legacy wealth floor: never start a quarter below $50k
+    const effectiveWealth = (gs.isRichLegacy && newWealth < 50_000) ? 50_000 : newWealth;
 
     update({
       housingTier: tier,
       mansionOwned,
-      stats: { ...gs.stats, wealth: newWealth },
+      stats: { ...gs.stats, wealth: effectiveWealth },
       quarterStartWealth: gs.stats.wealth,
       quarterlyRentPaid: rent,
       quarterlyExpensesLog: [],
       quarterlyStatDelta: {},
-      pendingMummysHelp: triggerMummy ? true : gs.pendingMummysHelp,
       subScreen: 'monthPicker',
     });
   };
@@ -1306,34 +1368,23 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     if (scaledChanges.charisma > 0)   scaledChanges.charisma    = Math.round(scaledChanges.charisma * (m.charismaMultiplierLooks || 1));
     if (scaledChanges.reputation > 0) scaledChanges.reputation  = Math.round(scaledChanges.reputation * (m.reputationMultiplier || 1));
 
-    const newStats = clampStats(
-      Object.entries(scaledChanges).reduce(
-        (acc, [k, v]) => ({ ...acc, [k]: (acc[k] || 0) + v }),
-        { ...gs.stats }
-      )
+    const preClamp = Object.entries(scaledChanges).reduce(
+      (acc, [k, v]) => ({ ...acc, [k]: (acc[k] || 0) + v }),
+      { ...gs.stats }
     );
-
-    const isMummy = gs.specialEventType === 'mummysHelp';
-
-    if (isMummy) {
-      const event = resolveEvent(pickQuarterlyEvent(gs.currentYear, gs.currentQuarter, gs.currentStageId, hasActiveRelationship(gs), gs.activityLog.some(a => a.year === gs.currentYear && a.quarter === gs.currentQuarter && a.activityId === 'therapy'), gs.seenOnceEvents || [], gs.urgentClientOption1Chosen && !(gs.seenOnceEvents || []).includes('headhunterFollowUp') && (gs.currentYear * 4 + gs.currentQuarter) >= ((gs.urgentClientChosenYear || 0) * 4 + (gs.urgentClientChosenQuarter || 0) + 2)), gs);
-      update({
-        stats: newStats,
-        mummysHelpCount: gs.mummysHelpCount + 1,
-        mustRepayMum: flags.mustRepayMum ?? gs.mustRepayMum,
-        secretBailout: flags.secretBailout ?? gs.secretBailout,
-        specialEventType: null,
-        currentEvent: event,
-        subScreen: 'quarterlyEvent',
-      });
-    } else {
-      update({
-        stats: newStats,
-        legacyHireEventFired: gs.specialEventType === 'legacyHire' ? true : gs.legacyHireEventFired,
-        specialEventType: null,
-        subScreen: 'monthPicker',
-      });
+    if (preClamp.sanity < 0 && !gs.isRichLegacy) {
+      update({ stats: clampStats({ ...preClamp, sanity: 0 }) });
+      onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+      return;
     }
+    const newStats = clampStats(preClamp);
+
+    update({
+      stats: newStats,
+      legacyHireEventFired: gs.specialEventType === 'legacyHire' ? true : gs.legacyHireEventFired,
+      specialEventType: null,
+      subScreen: 'monthPicker',
+    });
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1506,6 +1557,19 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
           )}
           {gs.subScreen === 'specialEvent' && (
             <SpecialEvent eventType={gs.specialEventType} gameState={gs} onDone={handleSpecialEventDone} />
+          )}
+          {gs.subScreen === 'bonusEvent' && gs.pendingBonusEventId && (
+            <BonusEvent gameState={gs} bonusEventId={gs.pendingBonusEventId} onDone={handleBonusEventDone} />
+          )}
+          {gs.subScreen === 'mummysHelpNotice' && (
+            <div className="mh-overlay">
+              <div className="mh-card">
+                <p className="mh-text">
+                  Your funds were running a bit low, so you gave your mum a call. She wired $1,000,000 to your account and reminded you to come home for dinner next weekend.
+                </p>
+                <button className="btn btn-primary" onClick={handleMummysHelpDone}>[ THANKS MUM ]</button>
+              </div>
+            </div>
           )}
         </main>
       </div>

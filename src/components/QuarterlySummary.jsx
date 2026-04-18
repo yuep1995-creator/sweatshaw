@@ -5,8 +5,7 @@ function SalaryStatement({ summary, quarter, year, name, stageId }) {
   const {
     quarterStartWealth, rentPaid, lifestyleCost, activityExpenses,
     gross, taxRate, taxWithheld, net,
-    bonusInfo, totalDeposited, closingBalance,
-    mustRepayMumRepaid,
+    bonusInfo, oneOffBonusInfo, totalDeposited, closingBalance,
   } = summary;
 
   const titleByStage = {
@@ -58,15 +57,24 @@ function SalaryStatement({ summary, quarter, year, name, stageId }) {
           </>
         )}
 
-        {mustRepayMumRepaid && (
+        {oneOffBonusInfo && (
           <>
             <div className="ss-spacer" />
+            <div className="ss-row">
+              <span>One-Off Bonus (Gross)</span>
+              <span>{formatDollars(oneOffBonusInfo.gross)}</span>
+            </div>
             <div className="ss-row neg">
-              <span>Mum's Loan Repaid</span>
-              <span>-{formatDollars(50_000)}</span>
+              <span>Tax Withheld on Bonus</span>
+              <span>-{formatDollars(oneOffBonusInfo.taxWithheld)}</span>
+            </div>
+            <div className="ss-row pos">
+              <span>Net Bonus Deposited</span>
+              <span>+{formatDollars(oneOffBonusInfo.net)}</span>
             </div>
           </>
         )}
+
       </div>
 
       <div className="ss-divider" />

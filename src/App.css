@@ -1500,6 +1500,18 @@ body {
   animation: feSlideIn 0.7s ease forwards;
 }
 
+/* Squarish screens (between 16:10 and 4:3) — start pulling in */
+@media (max-aspect-ratio: 4/3) {
+  .fe-char { height: 72vh; }
+  .bi-boss { height: 70vh; }
+}
+
+/* Square screens (~1:1) — 0.6× of base size, hard right */
+@media (max-aspect-ratio: 1/1) {
+  .fe-char { height: 53vh; right: 0; }
+  .bi-boss { height: 51vh; right: 0; }
+}
+
 .fe-left-panel {
   position: absolute;
   left: 4vw;
@@ -1516,7 +1528,7 @@ body {
   box-sizing: border-box;
   animation: feDialogueIn 0.5s ease 0.35s both;
   scrollbar-width: thin;
-  scrollbar-color: rgba(var(--fe-accent-rgb, 244 114 182) / 0.3) transparent;
+  scrollbar-color: rgba(244, 114, 182, 0.3) transparent;
 }
 
 .fe-tag {
@@ -4254,12 +4266,14 @@ body {
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  background: linear-gradient(135deg, #0a0e1a 0%, #111827 100%);
+  background-color: #0a0e1a;
+  background-size: cover;
+  background-position: center;
 }
 .bs-overlay {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 30%, rgba(212,160,23,0.07) 0%, transparent 70%);
+  background: rgba(0,0,0,0.62);
   pointer-events: none;
 }
 .bs-card-wrap {
@@ -4271,6 +4285,10 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 28px;
+  background: rgba(6,9,18,0.55);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  padding: 36px 32px;
 }
 .bs-tag {
   font-family: var(--font-mono);
@@ -4294,11 +4312,11 @@ body {
 .bs-balance {
   font-family: var(--font-mono);
   font-size: 0.85rem;
-  color: var(--text-dim);
+  color: var(--text-bright);
 }
 .bs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   width: 100%;
 }
@@ -4307,12 +4325,13 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(6,9,18,0.82);
+  border: 1px solid rgba(255,255,255,0.18);
   border-radius: 8px;
   padding: 20px 16px;
   cursor: pointer;
   text-align: left;
+  color: #e2e8f0;
   transition: background 150ms, border-color 150ms, transform 150ms;
 }
 .bs-option:hover:not(:disabled) {
@@ -4341,7 +4360,7 @@ body {
 }
 .bs-option-desc {
   font-size: 0.78rem;
-  color: var(--text-dim);
+  color: rgba(255,255,255,0.65);
   line-height: 1.4;
   flex: 1;
 }
@@ -4355,7 +4374,7 @@ body {
 .bs-option-cost {
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  color: var(--text-dim);
+  color: rgba(255,255,255,0.65);
 }
 .bs-option-effect {
   font-family: var(--font-mono);
@@ -5144,4 +5163,34 @@ body {
 .logan-choice-btn:hover {
   border-color: var(--accent);
   background: rgba(79,110,247,0.10);
+}
+
+/* ── MUMMY'S HELP NOTICE ────────────────────────────────────────────────── */
+.mh-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.mh-card {
+  background: #0d1117;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 40px 48px;
+  max-width: 520px;
+  width: 90%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.mh-text {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.7;
+  margin: 0;
 }

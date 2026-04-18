@@ -20,6 +20,18 @@
 // weight — relative draw weight (default 1). Higher = more likely to appear.
 
 export const ITEM_POOL = [
+  // ── Stage-restricted items ─────────────────────────────────────────────────
+  {
+    id: 'stashGilet',
+    name: 'Stash Gilet',
+    image: '/stash.png',
+    cost: 300,
+    giftMode: 'none',
+    selfEffects: { charisma: 5, reputation: 5 },
+    stageOnly: ['analyst', 'associate'],
+    weight: 1,
+  },
+
   // ── Player-only consumables ────────────────────────────────────────────────
   {
     id: 'adderall',
@@ -308,6 +320,7 @@ export function pickQuarterlyItems(stageId, excludeIds = [], opts = {}) {
   const pool  = ITEM_POOL.filter(item => {
     if (excludeIds.includes(item.id)) return false;
     if (item.selfForFemaleCharOnly && characterId === 'max' && !hasActiveFemaleDate) return false;
+    if (item.stageOnly && !item.stageOnly.includes(stageId)) return false;
     return true;
   });
 

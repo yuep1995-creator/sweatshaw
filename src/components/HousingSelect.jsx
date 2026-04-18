@@ -68,6 +68,7 @@ export default function HousingSelect({ gameState: gs, onHousingChosen }) {
       <div className="hs-card">
         <div className="hs-tag">ANNUAL LEASE RENEWAL</div>
         <h2 className="hs-title">Your lease is up. Where are you living next year?</h2>
+        <p className="hs-subtitle">The quality of your housing impacts your sleep quality... and sanity.</p>
 
         <div className="hs-info-bar">
           <div className="hs-info-item">

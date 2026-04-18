@@ -179,6 +179,11 @@ export const pickQuarterlyEvent = (year, quarter, currentStageId, hasActiveRelat
     return QUARTERLY_EVENTS.find(ev => ev.id === 'birthdayDeal');
   }
 
+  // Y2 Q4 only: 40% chance of Promotion Trap if looks > 50 (once only)
+  if (year === 2 && quarter === 4 && (opts?.looks ?? 0) > 50 && Math.random() < 0.40 && !seenOnceEvents.includes('promotionTrap')) {
+    return QUARTERLY_EVENTS.find(ev => ev.id === 'promotionTrap');
+  }
+
   // Q4 only: single roll → 25% Feedback Sandwich, 25% Christmas Party, 50% normal rotation
   if (quarter === 4) {
     const q4Roll = Math.random();
@@ -197,13 +202,15 @@ export const pickQuarterlyEvent = (year, quarter, currentStageId, hasActiveRelat
     if (ev.headhunterFollowUpOnly) return false; // only fires via urgentClientFollowUpDue
     if (ev.directorQ2OffsiteOnly) return false;  // only fires via Q2 Director dedicated check
     if (ev.loganQ4Only) return false;            // retired — Logan now has its own scene
+    if (ev.promotionTrapOnly) return false;      // only fires via Y2 Q4 dedicated check
     if (ev.onceOnly && seenOnceEvents.includes(ev.id)) return false; // already seen
     if (ev.maxStage && stageOrder.indexOf(ev.maxStage) < stageIdx) return false; // stage ceiling
     if (!ev.unlockFromStage) return true;
     return stageOrder.indexOf(ev.unlockFromStage) <= stageIdx;
   });
-  const idx = ((year - 1) * 4 + (quarter - 1)) % eligible.length;
-  return eligible[idx];
+  const pool = eligible.flatMap(ev => Array(ev.weight ?? 1).fill(ev));
+  const idx = ((year - 1) * 4 + (quarter - 1)) % pool.length;
+  return pool[idx];
 };
 
 // ─────────────────────────────────────────────
@@ -261,7 +268,7 @@ export const computeYearBadges = ({
   if (stats.competence > 200 && stats.reputation > 200) earned.push('starAssociate');
   if (stats.competence - yearStartStats.competence > 50)  earned.push('spreadsheetWhisperer');
 
-  const networkIds = ['networkInternal', 'networkExternal'];
+  const networkIds = ['networkInternal', 'networkExternal', 'playingPolitics', 'clientEntertainment'];
   if (!yearActs.some(a => networkIds.includes(a.activityId))) earned.push('theGhost');
   if (sanityDroppedBelow25) earned.push('runningOnFumes');
 
@@ -278,9 +285,9 @@ export const computeYearBadges = ({
 // ─────────────────────────────────────────────
 export const ANNUAL_SALARY_BY_STAGE = {
   analyst:   100_000,
-  associate: 180_000,
-  vp:        250_000,
-  director:  350_000,
+  associate: 175_000,
+  vp:        225_000,
+  director:  300_000,
 };
 
 export const getTaxRate = (_stageId) => 0.45;
@@ -313,7 +320,7 @@ export const computeAnnualBonus = (stageId, activityLog, year) => {
   const pitchRate   = pitchRateByStage[stageId] || 0.10;
 
   const yearActs    = activityLog.filter(a => a.year === year);
-  const extraCount  = yearActs.filter(a => a.activityId === 'extraResponsibilities').length;
+  const extraCount  = yearActs.filter(a => a.activityId === 'extraResponsibilities' || a.activityId === 'projectManagement').length;
   const crunchCount = yearActs.filter(a => a.activityId === 'crunchDeal').length;
   const pitchActs   = yearActs.filter(a => a.activityId === 'pitchClients');
   const pitchBonus  = pitchActs.reduce((sum, a) => sum + pitchRate * (a.pitchSuccess ? 2 : 1), 0);
@@ -395,7 +402,7 @@ export const checkEndings = (gs) => {
   if (gs.isRichLegacy) return null;
 
   // F.I.R.E. — wealthy, low-grit character, year 6+
-  if (stats.wealth > 2_000_000 && currentYear > 5 && (baseTraits?.grit ?? 100) < 19) return 'fire';
+  if (stats.wealth > 1_000_000 && currentYear > 5 && (baseTraits?.grit ?? 100) < 19) return 'fire';
   if (stats.reputation > 400 && (cultureDefyingChoiceCount || 0) >= 4 && (baseTraits?.grit ?? 100) < 19 && (lowSanityQuarters || 0) >= 2) return 'regulator';
   return null;
 };

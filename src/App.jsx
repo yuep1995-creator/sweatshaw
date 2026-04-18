@@ -86,10 +86,8 @@ const buildInitialGameState = (character, traits) => {
     quarterlyRentPaid:    q1Rent,
     quarterlyExpensesLog: [],
 
-    mummysHelpCount:   0,
-    mustRepayMum:      false,
-    secretBailout:     false,
-    pendingMummysHelp: false,
+    pendingMummysHelp:      false,
+    pendingAfterMummysHelp: null,
 
     lowSanityQuarters: 0,
 
@@ -136,6 +134,13 @@ const buildInitialGameState = (character, traits) => {
     sanityDroppedBelow25:  false,
     quarterEndSanities:    [],
     yearStartStats:        null,
+    totalGrossEarned:           0,
+    forcedAcceleratedPromotion: false,
+    walkOfShamePending:         false,
+    seenBonusEvents:            [],
+    pendingBonusEventId:        null,
+    pendingAfterBonusEvent:     null,
+    pendingOneOffBonus:         null,
     quarterlyHistory:      [],
     titlesEarned:          [],
     allBadgesEarned:       [],
@@ -272,6 +277,12 @@ export default function App() {
       const failAudio = new Audio('/fail.flac');
       failAudio.volume = 0.6;
       failAudio.play().catch(() => {});
+    }
+    if (endingId === 'walkOfShame') {
+      if (audioRef.current) audioRef.current.pause();
+      const shameAudio = new Audio('/fail.mp3');
+      shameAudio.volume = 0.6;
+      shameAudio.play().catch(() => {});
     }
     if (['madePartner', 'madeMD', 'kingOfWallStreet'].includes(endingId)) {
       if (audioRef.current) audioRef.current.pause();

@@ -39,7 +39,7 @@ export default function OnboardingCard({ character, traits, onBeginCareer }) {
         {/* Header */}
         <div className="onboarding-header">
           <div className="onboarding-logo">
-            <img src="/gslogo.png" alt="Sweatshaw & Co" className="onboarding-logo-img" />
+            <img src="/sclogo.png" alt="Sweatshaw & Co" className="onboarding-logo-img" />
             <span className="onboarding-logo-text">SWEATSHAW & CO</span>
           </div>
           <div className="onboarding-stamp">NEW HIRE</div>

@@ -18,12 +18,16 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
   const [cardVisible, setCardVisible] = useState(false);
   const [cryptoPhase, setCryptoPhase]   = useState('input'); // 'input' | 'reveal'
   const [cryptoAmount, setCryptoAmount] = useState(0);
-  const [cryptoWon, setCryptoWon]       = useState(false);
+  const [cryptoOutcome, setCryptoOutcome] = useState(null); // 'triple'|'double'|'half'|'wipeout'
+  const [resultMessage,  setResultMessage]  = useState(null);
+  const [pendingChoice,  setPendingChoice]  = useState(null);
 
   useEffect(() => {
     setCardVisible(false);
     setCryptoPhase('input');
     setCryptoAmount(0);
+    setResultMessage(null);
+    setPendingChoice(null);
     const timer = setTimeout(() => setCardVisible(true), 1000);
     return () => clearTimeout(timer);
   }, [event.id]);
@@ -53,6 +57,8 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
     ? '/hands.png'
     : event.id === 'theOffsite'
     ? '/hamptonsclub.png'
+    : event.id === 'promotionTrap'
+    ? '/kitchennight.png'
     : event.id === 'feedbackSandwich' || event.id === 'theWADrama' || event.id === 'theAIDeck'
     ? (isPEPath ? '/pebossoffice.png' : '/bankbossoffice.png')
     : event.id === 'boardQuestion'
@@ -86,17 +92,26 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
   const maxCrypto = Math.floor((stats.wealth || 0) / 2);
 
   const handleCryptoInvest = () => {
-    const won = Math.random() < 0.6;
-    setCryptoWon(won);
+    const roll = Math.random();
+    let outcome;
+    if      (roll < 0.10) outcome = 'triple';
+    else if (roll < 0.60) outcome = 'double';
+    else if (roll < 0.95) outcome = 'half';
+    else                  outcome = 'wipeout';
+    setCryptoOutcome(outcome);
     setCryptoPhase('reveal');
   };
 
   const handleCryptoContinue = () => {
     let wealthDelta = 0;
+    let cryptoGrossGain = 0;
     if (cryptoAmount > 0) {
-      wealthDelta = cryptoWon ? cryptoAmount : -Math.floor(cryptoAmount / 2);
+      if (cryptoOutcome === 'triple')  { wealthDelta = cryptoAmount * 2;               cryptoGrossGain = cryptoAmount * 2; }
+      if (cryptoOutcome === 'double')  { wealthDelta = cryptoAmount;                   cryptoGrossGain = cryptoAmount; }
+      if (cryptoOutcome === 'half')    { wealthDelta = -Math.floor(cryptoAmount / 2); }
+      if (cryptoOutcome === 'wipeout') { wealthDelta = -Math.floor(cryptoAmount * 0.9); }
     }
-    onChoice({ effects: { wealth: wealthDelta }, label: 'Crypto investment' });
+    onChoice({ effects: { wealth: wealthDelta }, label: 'Crypto investment', cryptoGrossGain });
   };
 
   return (
@@ -141,19 +156,33 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
             <div className="qe-crypto-reveal">
               {cryptoAmount === 0 ? (
                 <p className="qe-crypto-result">You watched Memecoin from the sidelines. Probably wise.</p>
-              ) : cryptoWon ? (
+              ) : cryptoOutcome === 'triple' ? (
+                <>
+                  <p className="qe-crypto-result qe-crypto-win">
+                    🚀🚀 Memecoin is up 200%. Your {formatDollars(cryptoAmount)} is now {formatDollars(cryptoAmount * 3)}.
+                  </p>
+                  <p className="qe-crypto-delta pos">+{formatDollars(cryptoAmount * 2)}</p>
+                </>
+              ) : cryptoOutcome === 'double' ? (
                 <>
                   <p className="qe-crypto-result qe-crypto-win">
                     🚀 Memecoin is up 100%. Your {formatDollars(cryptoAmount)} is now {formatDollars(cryptoAmount * 2)}.
                   </p>
                   <p className="qe-crypto-delta pos">+{formatDollars(cryptoAmount)}</p>
                 </>
-              ) : (
+              ) : cryptoOutcome === 'half' ? (
                 <>
                   <p className="qe-crypto-result qe-crypto-loss">
                     📉 Memecoin crashed 50%. Your {formatDollars(cryptoAmount)} is now {formatDollars(Math.floor(cryptoAmount / 2))}.
                   </p>
                   <p className="qe-crypto-delta neg">−{formatDollars(Math.floor(cryptoAmount / 2))}</p>
+                </>
+              ) : (
+                <>
+                  <p className="qe-crypto-result qe-crypto-loss">
+                    💀 Memecoin was a rug pull. Your {formatDollars(cryptoAmount)} is now {formatDollars(Math.floor(cryptoAmount * 0.1))}.
+                  </p>
+                  <p className="qe-crypto-delta neg">−{formatDollars(Math.floor(cryptoAmount * 0.9))}</p>
                 </>
               )}
               <button className="btn btn-primary qe-crypto-btn" onClick={handleCryptoContinue}>
@@ -161,6 +190,15 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
               </button>
             </div>
           )
+        ) : resultMessage ? (
+          <div className="qe-crypto-reveal">
+            {resultMessage.split('\n').map((line, i) =>
+              line === '' ? <br key={i} /> : <p key={i} className="qe-crypto-result">{line}</p>
+            )}
+            <button className="btn btn-primary qe-crypto-btn" onClick={() => onChoice(pendingChoice)}>
+              [ CONTINUE ]
+            </button>
+          </div>
         ) : (
           <div className="qe-choices">
             {event.choices.map((choice, i) => {
@@ -169,7 +207,15 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
                 <button
                   key={i}
                   className={`qe-choice ${locked ? 'locked' : ''} ${choice.isD ? 'option-d' : ''}`}
-                  onClick={() => !locked && onChoice(choice)}
+                  onClick={() => {
+                    if (locked) return;
+                    if (choice.specialResultMessage) {
+                      setResultMessage(choice.specialResultMessage);
+                      setPendingChoice(choice);
+                    } else {
+                      onChoice(choice);
+                    }
+                  }}
                   disabled={locked}
                 >
                   <span className="qe-choice-letter">{['A','B','C','D'][i]}</span>

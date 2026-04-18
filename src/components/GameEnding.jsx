@@ -131,6 +131,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart, onNextC
     headOfInternalStrategy:  { paige: 'internalstratpaige',  max: 'internalstratmax'   },
     professionalCoach:       { paige: 'ecoachpaige',         max: 'ecoachmax'          },
     mentalBreakdown:         { paige: 'mentalpaige',          max: 'mentalmax'          },
+    walkOfShame:             { paige: 'mentalpaige',          max: 'mentalmax'          },
     madeMD:                  { paige: 'madeMDpaige',          max: 'madeMDmax'          },
     hollowMD:                { paige: 'ehollowpaige',         max: 'ehollowmax'         },
     hollowVictory:           { paige: 'ehollowpaige',         max: 'ehollowmax'         },
@@ -150,7 +151,7 @@ export default function GameEnding({ endingId, gameState: gs, onRestart, onNextC
     ? `url('${SHARED_BG_ENDINGS[endingId]}')`
     : undefined;
 
-  const hasBgClass = ['backToFamilyBusiness', 'fire', 'regulator', 'burntOut', 'upOrOut', 'permanentVP', 'headOfInternalStrategy', 'professionalCoach', 'mentalBreakdown', 'madeMD', 'hollowMD', 'hollowVictory', 'madePartner', 'kingOfWallStreet', 'startupSuccess', 'startupBust', 'headOfCorpDev', 'friendsFO'].includes(endingId);
+  const hasBgClass = ['backToFamilyBusiness', 'fire', 'regulator', 'burntOut', 'upOrOut', 'permanentVP', 'headOfInternalStrategy', 'professionalCoach', 'mentalBreakdown', 'walkOfShame', 'madeMD', 'hollowMD', 'hollowVictory', 'madePartner', 'kingOfWallStreet', 'startupSuccess', 'startupBust', 'headOfCorpDev', 'friendsFO'].includes(endingId);
 
   return (
     <div
@@ -182,14 +183,27 @@ export default function GameEnding({ endingId, gameState: gs, onRestart, onNextC
         <div className="ending-stats">
           <div className="ending-stats-label">FINAL PERFORMANCE RECORD</div>
           <div className="ending-stats-grid">
-            {Object.entries(gs.stats).map(([k, v]) => (
-              <div key={k} className="ending-stat">
-                <span className="ending-stat-key">{k}</span>
-                <span className="ending-stat-val" style={{ color: ending.colour }}>
-                  {k === 'wealth' ? formatDollars(v) : v}
-                </span>
-              </div>
-            ))}
+            {Object.entries(gs.stats).flatMap(([k, v]) => {
+              const row = (
+                <div key={k} className="ending-stat">
+                  <span className="ending-stat-key">{k}</span>
+                  <span className="ending-stat-val" style={{ color: ending.colour }}>
+                    {k === 'wealth' ? formatDollars(v) : v}
+                  </span>
+                </div>
+              );
+              if (k === 'wealth') {
+                return [row, (
+                  <div key="totalGrossEarned" className="ending-stat">
+                    <span className="ending-stat-key">total wealth accumulated</span>
+                    <span className="ending-stat-val" style={{ color: ending.colour }}>
+                      {formatDollars(gs.totalGrossEarned || 0)}
+                    </span>
+                  </div>
+                )];
+              }
+              return [row];
+            })}
             <div className="ending-stat">
               <span className="ending-stat-key">years served</span>
               <span className="ending-stat-val" style={{ color: ending.colour }}>{gs.currentYear - 1}</span>

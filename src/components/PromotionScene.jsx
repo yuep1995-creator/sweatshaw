@@ -54,7 +54,7 @@ export default function PromotionScene({ newStageId, isPEPath = false, onDone })
       />
       <div className="ps-overlay" />
 
-      <img src={isPEPath ? '/PEbosshappy.png' : '/happyboss.png'} className="ps-boss" alt="" />
+      <img src={isPEPath ? '/pebosshappy.png' : '/happyboss.png'} className="ps-boss" alt="" />
 
       <div className="ps-left-panel">
         <div className="ps-dialogue">

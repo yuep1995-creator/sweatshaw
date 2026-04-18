@@ -18,6 +18,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen, onItemP
       if (a.id === 'goOnDate' && !gs.dateUnlocked && !gs.firstEncounterDone) return false;
       if (a.q3Only && gs.currentQuarter !== 3) return false;
       if (a.id === 'hitGym' && gs.currentQuarter === 3) return false;
+      if (a.stageOnly && !a.stageOnly.includes(gs.currentStageId)) return false;
       return true;
     }),
   }));
@@ -81,9 +82,14 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen, onItemP
                 const unaffordable  = !yearLocked && !encounterLocked && !dateMissed && !onceLocked && (act.cost || 0) > wealth;
                 const unavailable   = yearLocked || encounterLocked || dateMissed || unaffordable || onceLocked;
                 const multipliers   = gs.traitMultipliers || {};
-                const baseEffects   = act.promotionScaled
-                  ? Object.fromEntries(Object.entries(act.effects).map(([k, v]) => [k, Math.round(v * getStagePromotionMultiplier(gs.currentStageId))]))
-                  : act.effects;
+                const baseEffects = (() => {
+                  const e = act.promotionScaled
+                    ? Object.fromEntries(Object.entries(act.effects).map(([k, v]) => [k, Math.round(v * getStagePromotionMultiplier(gs.currentStageId))]))
+                    : { ...act.effects };
+                  if (act.sanityByStage && act.sanityByStage[gs.currentStageId] != null)
+                    e.sanity = act.sanityByStage[gs.currentStageId];
+                  return e;
+                })();
                 const adjEffects    = getAdjustedEffects(baseEffects, multipliers, gs.housingTier, gs.currentYear);
                 const adjRiskEffect = act.risk ? getAdjustedEffects(act.risk.effect, multipliers, gs.housingTier, gs.currentYear) : null;
                 return (

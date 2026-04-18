@@ -4,8 +4,8 @@ import { formatDollars } from '../gameEngine';
 const BASE_OPTIONS = [
   { id: 'sleepIn',       icon: '😴', name: 'Sleep In',       baseCost: 0,       sanity: 15,  description: 'A long weekend in bed. You have earned this.' },
   { id: 'clubbing',      icon: '🎉', name: 'Clubbing',       baseCost: 2_000,   sanity: 25,  description: 'Table booked. Dress code enforced. Inhibitions optional.',                juniorOnly: true },
-  { id: 'shoppingSpree', icon: '🛍', name: 'Shopping Spree', baseCost: 8_000,   sanity: 40,  description: 'Retail therapy. The bags themselves are the healing.' },
-  { id: 'cancun',        icon: '🏖', name: 'Cancun',         baseCost: 20_000,  sanity: 80,  description: 'Sun, sea, and a temporary personality transplant.' },
+  { id: 'shoppingSpree', icon: '💸', name: 'Shopping Spree', baseCost: 8_000,   sanity: 40,  description: 'Retail therapy. The bags themselves are the healing.' },
+  { id: 'cancun',        icon: '🌊', name: 'Cancun',         baseCost: 20_000,  sanity: 80,  description: 'Sun, sea, and a temporary personality transplant.' },
   { id: 'boraBora',      icon: '🌴', name: 'Bora Bora',      baseCost: 30_000,  sanity: 100, description: 'Overwater bungalow. No emails. No exceptions.' },
   { id: 'stMoritz',      icon: '⛷️', name: 'St. Moritz',     baseCost: 50_000,  sanity: 125, description: 'Chalet booked. Skis waxed. Out of office: indefinitely.',                seniorOnly: true },
 ];
@@ -100,7 +100,7 @@ export default function BonusSpree({ gameState: gs, onChosen }) {
 
   // ── OPTION PICKER ─────────────────────────────────────────────────────────
   return (
-    <div className="bs-screen">
+    <div className="bs-screen" style={{ backgroundImage: "url('/bonus.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="bs-overlay" />
 
       <div className="bs-card-wrap">

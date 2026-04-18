@@ -5,7 +5,7 @@ const CONVERSATIONS = {
   victor: {
     character: 'Victor Hughes',
     subtitle: 'Analyst — Morgan Greystone Capital',
-    bgImage: '/network.png',
+    bgImage: '/frenchdiner.png',
     charImage: '/VictorHughes.png',
     doneLabel: 'Head back',
     pages: [
@@ -76,7 +76,7 @@ const CONVERSATIONS = {
   adira: {
     character: 'Adira Sharma',
     subtitle: 'M&A Associate — Clifford Chance  ·  Wharton, Economics (Top of Class)',
-    bgImage: '/network.png',
+    bgImage: '/steakhouse.png',
     charImage: '/AdiraSharma.png',
     doneLabel: 'Take mental notes',
     pages: [
