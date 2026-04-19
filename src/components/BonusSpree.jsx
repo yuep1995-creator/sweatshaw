@@ -4,10 +4,11 @@ import { formatDollars } from '../gameEngine';
 const BASE_OPTIONS = [
   { id: 'sleepIn',       icon: '😴', name: 'Sleep In',       baseCost: 0,       sanity: 15,  description: 'A long weekend in bed. You have earned this.' },
   { id: 'clubbing',      icon: '🎉', name: 'Clubbing',       baseCost: 2_000,   sanity: 25,  description: 'Table booked. Dress code enforced. Inhibitions optional.',                juniorOnly: true },
-  { id: 'shoppingSpree', icon: '💸', name: 'Shopping Spree', baseCost: 8_000,   sanity: 40,  description: 'Retail therapy. The bags themselves are the healing.' },
-  { id: 'cancun',        icon: '🌊', name: 'Cancun',         baseCost: 20_000,  sanity: 80,  description: 'Sun, sea, and a temporary personality transplant.' },
-  { id: 'boraBora',      icon: '🌴', name: 'Bora Bora',      baseCost: 30_000,  sanity: 100, description: 'Overwater bungalow. No emails. No exceptions.' },
-  { id: 'stMoritz',      icon: '⛷️', name: 'St. Moritz',     baseCost: 50_000,  sanity: 125, description: 'Chalet booked. Skis waxed. Out of office: indefinitely.',                seniorOnly: true },
+  { id: 'shoppingSpree', icon: '💸', name: 'Shopping Spree', baseCost: 8_000,   sanity: 40,  description: 'Retail therapy. The bags themselves are the healing.',                    juniorOnly: true },
+  { id: 'casinoNight',   icon: '🎰', name: 'Casino Night',   baseCost: 12_500,  sanity: 40,  description: 'High stakes, low inhibitions. The house always wins. Probably.',          seniorOnly: true },
+  { id: 'cancun',        icon: '🌊', name: 'Cancun',         baseCost: 15_000,  sanity: 60,  description: 'Sun, sea, and a temporary personality transplant.' },
+  { id: 'boraBora',      icon: '🌴', name: 'Bora Bora',      baseCost: 20_000,  sanity: 80,  description: 'Overwater bungalow. No emails. No exceptions.' },
+  { id: 'stMoritz',      icon: '⛷️', name: 'St. Moritz',     baseCost: 40_000,  sanity: 120, description: 'Chalet booked. Skis waxed. Out of office: indefinitely.',                seniorOnly: true },
 ];
 
 // Maps housing tier → image filename suffix for sleep-in scene
@@ -19,6 +20,7 @@ const PROPERTY_IMAGES = {
 const SCENE_IMAGES = {
   clubbing:      '/bclub.png',
   shoppingSpree: '/bshopping.png',
+  casinoNight:   '/casino.png',
   cancun:        '/bcancun.png',
   boraBora:      '/bbora.png',
   stMoritz:      '/bstmoritz.png',
@@ -38,6 +40,7 @@ const SCENE_TEXT = {
     sleepIn: "First morning in nine months without an alarm. Slept until eleven, ate toast standing over the sink, and found myself mapping out next quarter's pipeline before noon. Productivity, apparently, cannot be switched off by an act of will. You call it rest. I call it active recovery — and I'm billing it as such.",
     clubbing: "Booked the table six days in advance and still arrived to find someone else had taken it — classic. Two bottles of Moët later, none of that mattered. Managed four consecutive hours without discussing a single spreadsheet, which is either a personal record or a cause for concern. Back at the desk by eight the next morning. The only way to recover is to not stop moving.",
     shoppingSpree: "Finally pulled the trigger on the Submariner I'd been eyeing since Q2. Not for vanity — for leverage. Nothing closes a room quite like the right watch on the right wrist, and frankly, I've earned this one. Picked up three suits that will pay for themselves in first impressions alone. Receipts filed under 'Professional Development'.",
+    casinoNight: "Reserved the private table at eleven. Bourbon, chips, the particular silence of a room full of people pretending they're not watching each other. Played for four hours with the focused calm of someone who treats variance as a feature of the asset class. Walked out in better shape than most. It's not gambling if you know what you're doing.",
     cancun: "Checked in on Friday. Had the quarterly model open by Saturday afternoon — only briefly, I told myself. The pool looked exactly like the screensaver I've been ignoring for three years, which felt oddly validating. Tanned, rested, and mildly annoyed about the Wi-Fi. Flew back Sunday. Business class. Obviously.",
     boraBora: "Overwater bungalow. Private deck. Water so clear you could see straight to the bottom, with no one asking for a revised deck. Spent four days doing precisely what I'd spent the entire year optimising myself away from — nothing at all. Came back sharper. Or at least that's the story I'm running with.",
     stMoritz: "Flew into Geneva on Thursday. The chalet had been booked since October — that's not extravagance, that's forward planning. Skied for four days with two clients, a lawyer from Zurich, and a man whose function was never made entirely clear. Three deals were discussed on the mountain. One may actually close. The altitude helps. So does the wine. I have no notes from Friday evening and I'm treating that as a feature, not a bug.",
@@ -46,19 +49,27 @@ const SCENE_TEXT = {
     sleepIn: "Turned the phone off. Actually off, not silent — the whole thing. Spent the morning horizontal, watching the ceiling do nothing in particular. By 2pm I'd already drafted an email I wouldn't send until Monday, which I'm counting as genuine restraint. Progress, apparently, is non-negotiable even on annual leave.",
     clubbing: "Wore the dress that's been hanging in the wardrobe since September. Managed three full hours without checking my phone, an achievement I intend to mention at my next performance review. The city at 2am looks exactly like a Bloomberg terminal if you squint and tilt your head. Felt human again, briefly, and on reflection that's quite enough.",
     shoppingSpree: "Row of shops, one card, no remorse whatsoever. The theory is that investment pieces hold their value — a logic that applies equally to Mayfair property and to the right handbag, as far as I'm concerned. Came home with four bags and the distinct sense of having beaten the market. I've logged the total as 'lifestyle infrastructure'.",
+    casinoNight: "The casino was quieter than expected for a Friday. Found a seat, ordered something cold, and played with the detached precision of someone who has spent years reading rooms and managing risk. The croupier was good. I was better. Not by luck — by temperament. Walked out calm. Always the goal.",
     cancun: "Took the earlier flight to squeeze in one more morning of sun. Lay on the beach and attempted to think about nothing — succeeded briefly, then thought about the Meridian deal, then managed nothing again for a solid twenty minutes. The margaritas helped considerably. Mexico is now a recurring item on the personal wellness strategy.",
     boraBora: "The bungalow had its own ladder into the lagoon and an espresso machine that outperformed the one on the trading floor by a considerable margin. Read two books — one was about leadership and the other was not, and I'm not elaborating further. Came back with a tan, renewed clarity of purpose, and a mildly alarming enthusiasm for the next twelve months.",
     stMoritz: "The chalet was technically a colleague's recommendation and practically the best decision I've made outside of a boardroom. Four days of skis, fondue, and the particular silence that only exists above two thousand metres. Saw precisely two people from work — we made eye contact on the chairlift, said nothing, and it was the most professional interaction I've had all year. Came back restored to something close to factory settings.",
   },
 };
 
+function rollCasinoWinnings() {
+  const roll = Math.random();
+  if (roll < 0.05) return 8_888;
+  if (roll < 0.25) return 888;  // 5% big + 20% small = top 25%
+  return 0;
+}
+
 export default function BonusSpree({ gameState: gs, onChosen }) {
-  const [chosen,      setChosen]      = useState(null); // { optionId, cost, sanity }
+  const [chosen,      setChosen]      = useState(null); // { optionId, cost, sanity, winnings }
   const [textVisible, setTextVisible] = useState(false);
 
   // gs.currentYear already incremented; yearIndex 0 = first bonus spree (after Year 1)
   const yearIndex  = gs.currentYear - 2;
-  const multiplier = Math.pow(1.2, Math.max(0, yearIndex));
+  const multiplier = Math.pow(1.1, Math.max(0, yearIndex));
   const wealth     = gs.stats.wealth;
 
   const isSenior = ['vp', 'director'].includes(gs.currentStageId);
@@ -86,9 +97,14 @@ export default function BonusSpree({ gameState: gs, onChosen }) {
         <div className={`bs-scene-content ${textVisible ? 'visible' : ''}`}>
           <div className="bs-scene-box">
             <p className="bs-scene-text">{text}</p>
+            {chosen.winnings > 0 && (
+              <p className="bs-scene-winnings">
+                Not a bad night at the tables — you walked out {formatDollars(chosen.winnings)} richer.
+              </p>
+            )}
             <button
               className="btn btn-primary btn-large bs-scene-btn"
-              onClick={() => onChosen(chosen.optionId, chosen.cost, chosen.sanity)}
+              onClick={() => onChosen(chosen.optionId, chosen.cost, chosen.sanity, chosen.winnings)}
             >
               [ GET BACK TO WORK ]
             </button>
@@ -118,7 +134,10 @@ export default function BonusSpree({ gameState: gs, onChosen }) {
               <button
                 key={opt.id}
                 className={`bs-option ${!canAfford ? 'unaffordable' : ''}`}
-                onClick={() => setChosen({ optionId: opt.id, cost, sanity: opt.sanity })}
+                onClick={() => {
+                  const winnings = opt.id === 'casinoNight' ? rollCasinoWinnings() : 0;
+                  setChosen({ optionId: opt.id, cost, sanity: opt.sanity, winnings });
+                }}
                 disabled={!canAfford}
                 data-sound="decline"
               >

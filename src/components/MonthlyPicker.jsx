@@ -81,7 +81,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen, onItemP
                 const onceLocked    = act.oncePerQuarter && alreadyChosen.includes(act.id);
                 const unaffordable  = !yearLocked && !encounterLocked && !dateMissed && !onceLocked && (act.cost || 0) > wealth;
                 const unavailable   = yearLocked || encounterLocked || dateMissed || unaffordable || onceLocked;
-                const multipliers   = gs.traitMultipliers || {};
+                const multipliers   = { ...(gs.traitMultipliers || {}), isPEPath: gs.isPEPath || false };
                 const baseEffects = (() => {
                   const e = act.promotionScaled
                     ? Object.fromEntries(Object.entries(act.effects).map(([k, v]) => [k, Math.round(v * getStagePromotionMultiplier(gs.currentStageId))]))
@@ -90,7 +90,14 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen, onItemP
                     e.sanity = act.sanityByStage[gs.currentStageId];
                   return e;
                 })();
-                const adjEffects    = getAdjustedEffects(baseEffects, multipliers, gs.housingTier, gs.currentYear);
+                const adjEffects = (() => {
+                  if (act.bypassSanityMultiplier && baseEffects.sanity != null) {
+                    const rawSanity = baseEffects.sanity;
+                    const { sanity: _s, ...rest } = baseEffects;
+                    return { ...getAdjustedEffects(rest, multipliers, gs.housingTier, gs.currentYear), sanity: rawSanity };
+                  }
+                  return getAdjustedEffects(baseEffects, multipliers, gs.housingTier, gs.currentYear);
+                })();
                 const adjRiskEffect = act.risk ? getAdjustedEffects(act.risk.effect, multipliers, gs.housingTier, gs.currentYear) : null;
                 return (
                   <button
@@ -101,7 +108,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen, onItemP
                   >
                     <span className="mp-card-icon">{act.icon}</span>
                     <div className="mp-card-body">
-                      <div className="mp-card-name">{act.name}</div>
+                      <div className="mp-card-name">{gs.isPEPath && act.peName ? act.peName : act.name}</div>
                       <div className="mp-card-desc">{act.description}</div>
                       {yearLocked ? (
                         <div className="mp-card-year-lock">Available from Year 2</div>

@@ -34,7 +34,7 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
 
   const char = characterId === 'paige' ? 'paige' : 'max';
   const bgImg = event.id === 'theHotIntern'
-    ? (isPEPath ? '/pebossoffice.png' : '/bankbossoffice.png')
+    ? (isPEPath ? '/peoffice.png' : '/bcoffice.png')
     : event.id === 'apresSki'
     ? '/bstmoritz.png'
     : event.id === 'christmasParty'
@@ -49,8 +49,10 @@ export default function QuarterlyEvent({ event, stats, characterId, isPEPath, ho
     ? '/bclub.png'
     : event.id === 'clientWhooper'
     ? (isPEPath ? '/peoffice.png' : '/bcoffice.png')
+    : event.id === 'elevatorSecret'
+    ? '/lift.png'
     : event.id === 'linkedInPost'
-    ? (isPEPath ? '/peoffice.png' : '/bcoffice.png')
+    ? '/hands.png'
     : event.id === 'cryptoCrypto'
     ? '/crypto.png'
     : event.id === 'fomo'

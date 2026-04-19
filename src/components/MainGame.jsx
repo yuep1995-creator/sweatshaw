@@ -406,7 +406,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   // ── CORE ACTIVITY PROCESSOR ──────────────────────────────────────────────
   const applyActivityAndAdvance = (activityDef, dateDef) => {
-    const m = gs.traitMultipliers || {};
+    const m = { ...(gs.traitMultipliers || {}), isPEPath: gs.isPEPath || false };
 
     // --- Wealth: deduct activity cost
     const actCost = activityDef.cost || 0;
@@ -538,7 +538,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     const totalSpend = actCost + dateCost;
     if (totalSpend > 0) {
       newExpensesLog.push({
-        label: activityDef.name + (dateDef ? ` + ${dateDef.name}` : ''),
+        label: (gs.isPEPath && activityDef.peName ? activityDef.peName : activityDef.name) + (dateDef ? ` + ${dateDef.name}` : ''),
         amount: totalSpend,
       });
     }
@@ -679,7 +679,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       return;
     }
 
-    const m = gs.traitMultipliers || {};
+    const m = { ...(gs.traitMultipliers || {}), isPEPath: gs.isPEPath || false };
     let finalStats = { ...gs.stats };
     const effects = { ...choice.effects };
 
@@ -830,7 +830,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       return;
     }
 
-    const m = gs.traitMultipliers || {};
+    const m = { ...(gs.traitMultipliers || {}), isPEPath: gs.isPEPath || false };
     const raw = { ...choice.effects };
     if (raw.competence > 0) raw.competence = Math.round(raw.competence * (m.competenceMultiplier || 1));
     if (raw.sanity    < 0) raw.sanity      = Math.round(raw.sanity * (1 - (m.sanityLossReduction || 0)));
@@ -879,6 +879,19 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     });
   };
 
+  // ── PE TRANSITION SCENE DONE (success text box → quarterly summary) ───────
+  const handlePETransitionDone = () => {
+    update({ subScreen: 'quarterlySummary' });
+  };
+
+  // ── PE FAILED INTERVIEW DONE (failure text box → continue at bank) ────────
+  const handlePEFailedInterviewDone = () => {
+    update({
+      subScreen: gs.pendingAfterPEFailed || 'monthPicker',
+      pendingAfterPEFailed: null,
+    });
+  };
+
   // ── PERSONAL DEV NOTE DONE ───────────────────────────────────────────────
   const handlePersonalDevNoteDone = (option) => {
     if (option === 'startup') {
@@ -905,25 +918,60 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     }
 
     if (option === 'pe') {
-      const peItems = pickQuarterlyItems(gs.currentStageId, [], { characterId: gs.characterId, relationshipPartnerId: gs.relationshipPartnerId, relationshipStatus: gs.relationshipStatus });
+      const meetsAllCriteria = gs.stats.competence > 450 && gs.stats.charisma > 200 && gs.stats.reputation > 200;
+
+      if (!meetsAllCriteria) {
+        // Failed PE interview — show failure screen, then continue at bank
+        update({
+          pendingAfterPersonalDevNote: null,
+          subScreen: 'peFailedInterview',
+          pendingAfterPEFailed: gs.pendingAfterPersonalDevNote || 'monthPicker',
+        });
+        return;
+      }
+
+      // ── PE transition: compute Q4 notice-period salary + 75% pro-rata bonus ──
+      const salMult    = gs.salaryMultiplier || 1;
+      const salaryInfo = getQuarterlySalary(gs.currentStageId);
+      const salaryGross   = Math.round(salaryInfo.gross * salMult);
+      const salaryTax     = Math.round(salaryGross * salaryInfo.taxRate);
+      const salaryNet     = salaryGross - salaryTax;
+
+      const rawBonus  = computeAnnualBonus(gs.currentStageId, gs.activityLog, gs.currentYear);
+      const bonusGross = Math.round(rawBonus.gross * salMult * 0.75);
+      const bonusTax   = Math.round(bonusGross * rawBonus.taxRate);
+      const bonusNet   = bonusGross - bonusTax;
+
+      const totalDeposited = salaryNet + bonusNet;
+      const lifestyleCost  = getQuarterlyLifestyle(gs.currentStageId, gs.isRichLegacy);
+      const newWealth      = Math.min(99_999_999, Math.max(0, gs.stats.wealth + totalDeposited - lifestyleCost));
+      const newSanity      = Math.max(88, gs.stats.sanity);
+      const newStats       = clampStats({ ...gs.stats, wealth: newWealth, sanity: newSanity });
+
+      const salarySummary = {
+        stageId:            gs.currentStageId,
+        quarterStartWealth: gs.quarterStartWealth,
+        rentPaid:           gs.quarterlyRentPaid,
+        lifestyleCost,
+        activityExpenses:   gs.quarterlyExpensesLog.reduce((s, e) => s + e.amount, 0),
+        gross:              salaryGross,
+        taxRate:            salaryInfo.taxRate,
+        taxWithheld:        salaryTax,
+        net:                salaryNet,
+        bonusInfo:          { gross: bonusGross, taxWithheld: bonusTax, net: bonusNet, taxRate: rawBonus.taxRate },
+        oneOffBonusInfo:    null,
+        totalDeposited,
+        closingBalance:     newStats.wealth,
+      };
+
       update({
-        companyName:                'Darkstone & Partners',
-        isPEPath:                   true,
-        salaryMultiplier:           1.2,
-        promoReqMultiplier:         1.1,
-        currentYear:                gs.currentYear + 1,
-        currentQuarter:             1,
-        currentMonth:               1,
-        monthActivities:            [],
-        yearStartStats:             { ...gs.stats },
-        quarterEndSanities:         [],
-        sanityDroppedBelow25:       false,
-        annualData:                 null,
-        quarterlyStatDelta:         {},
-        quarterlyItems:             peItems,
-        itemPurchasedThisQuarter:   false,
+        stats:                      newStats,
+        salarySummary,
+        lastStatChanges:            { changes: {}, riskMessage: null, dateFlavour: null },
+        currentMonth:               3,   // force quarter-end so salary statement renders
+        pendingPETransition:        true,
         pendingAfterPersonalDevNote: null,
-        subScreen:                  'peIntro',
+        subScreen:                  'peTransitionScene',
       });
       return;
     }
@@ -937,6 +985,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   // ── QUARTERLY SUMMARY DONE ───────────────────────────────────────────────
   const handleSummaryDone = () => {
+    // PE transition: skip normal quarter logic, go straight to bonus spending
+    if (gs.pendingPETransition) {
+      update({ subScreen: 'bonusSpree' });
+      return;
+    }
+
     // Rich Legacy rage-quit: sanity has fallen below their floor of 30
     if (gs.isRichLegacy && gs.stats.sanity < 30) {
       onEnding('backToFamilyBusiness');
@@ -1273,7 +1327,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
           }
         } else if (gs.currentStageId === 'director') {
           const isMarried = gs.relationshipStatus === 'married';
-          const isKing = isMarried && gs.stats.competence > 900 && gs.stats.reputation > 900 && gs.stats.charisma > 900;
+          const isKing = isMarried && gs.stats.competence > 950 && gs.stats.reputation > 950 && gs.stats.charisma > 950;
           if (isKing) { onEnding('kingOfWallStreet'); return; }
           onEnding(gs.isPEPath ? (isMarried ? 'madePartner' : 'hollowVictory') : (isMarried ? 'madeMD' : 'hollowMD'));
           return;
@@ -1314,12 +1368,12 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
   };
 
   // ── BONUS SPREE CHOSEN ────────────────────────────────────────────────────
-  const handleBonusSpreeChosen = (optionId, cost, sanityGain) => {
-    const newWealth = gs.stats.wealth - cost;
+  const handleBonusSpreeChosen = (optionId, cost, sanityGain, winnings = 0) => {
+    const newWealth = gs.stats.wealth - cost + winnings;
     const newSanity = Math.min(200, gs.stats.sanity + sanityGain);
     update({
       stats: { ...gs.stats, wealth: newWealth, sanity: newSanity },
-      subScreen: 'housingSelect',
+      subScreen: gs.pendingPETransition ? 'peIntro' : 'housingSelect',
     });
   };
 
@@ -1357,7 +1411,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
   // ── SPECIAL EVENT DONE ───────────────────────────────────────────────────
   const handleSpecialEventDone = (result) => {
-    const m = gs.traitMultipliers || {};
+    const m = { ...(gs.traitMultipliers || {}), isPEPath: gs.isPEPath || false };
     const statChanges = result?.statChanges || {};
     const flags       = result?.flags || {};
 
@@ -1547,7 +1601,40 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
             <MarathonScene isPEPath={gs.isPEPath} onDone={handleMarathonSceneDone} />
           )}
           {gs.subScreen === 'peIntro' && (
-            <PEIntroScene onDone={() => update({ subScreen: 'bonusSpree' })} />
+            <PEIntroScene onDone={() => {
+              if (gs.pendingPETransition) {
+                // Set up full PE state and advance to Y+1 Q1
+                const rent    = getQuarterlyRent(gs.housingTier, gs.mansionOwned);
+                const newW    = Math.max(0, gs.stats.wealth - rent);
+                const peItems = pickQuarterlyItems(gs.currentStageId, [], { characterId: gs.characterId, relationshipPartnerId: gs.relationshipPartnerId, relationshipStatus: gs.relationshipStatus });
+                update({
+                  companyName:              'Darkstone & Partners',
+                  isPEPath:                 true,
+                  salaryMultiplier:         1.2,
+                  promoReqMultiplier:       1.1,
+                  currentYear:              gs.currentYear + 1,
+                  currentQuarter:           1,
+                  currentMonth:             1,
+                  monthActivities:          [],
+                  yearStartStats:           { ...gs.stats, wealth: newW },
+                  quarterEndSanities:       [],
+                  sanityDroppedBelow25:     false,
+                  annualData:               null,
+                  quarterlyStatDelta:       {},
+                  quarterlyItems:           peItems,
+                  itemPurchasedThisQuarter: false,
+                  pendingPETransition:      false,
+                  salarySummary:            null,
+                  stats:                    { ...gs.stats, wealth: newW },
+                  quarterStartWealth:       gs.stats.wealth,
+                  quarterlyRentPaid:        rent,
+                  quarterlyExpensesLog:     [],
+                  subScreen:                'monthPicker',
+                });
+              } else {
+                update({ subScreen: 'bonusSpree' });
+              }
+            }} />
           )}
           {gs.subScreen === 'bonusSpree' && (
             <BonusSpree gameState={gs} onChosen={handleBonusSpreeChosen} />
@@ -1568,6 +1655,39 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
                   Your funds were running a bit low, so you gave your mum a call. She wired $1,000,000 to your account and reminded you to come home for dinner next weekend.
                 </p>
                 <button className="btn btn-primary" onClick={handleMummysHelpDone}>[ THANKS MUM ]</button>
+              </div>
+            </div>
+          )}
+          {gs.subScreen === 'peTransitionScene' && (
+            <div className="pe-notice-screen" style={{ backgroundImage: "url('/bankbossoffice.png')" }}>
+              <div className="pe-notice-overlay" />
+              <div className="pe-notice-card">
+                <div className="pe-notice-tag">CAREER TRANSITION</div>
+                <p className="pe-notice-text">
+                  You followed up with the headhunter. The interview process was smooth — all nine rounds. You put in your notice on the second day after receiving your offer. Your MD wished you the best going forward. You are joining a client, after all.
+                </p>
+                <p className="pe-notice-text">
+                  You will receive your bonus pro rata for the year — 75% of what you were originally entitled to, given you did not work Q4. You spent Q4 serving your notice period, and used the time to decompress after your banking years.
+                </p>
+                <p className="pe-notice-text pe-notice-text--em">
+                  Well done.
+                </p>
+                <button className="btn btn-primary" onClick={handlePETransitionDone}>[ VIEW FINAL STATEMENT ]</button>
+              </div>
+            </div>
+          )}
+          {gs.subScreen === 'peFailedInterview' && (
+            <div className="pe-notice-screen" style={{ backgroundImage: "url('/ws.png')" }}>
+              <div className="pe-notice-overlay" />
+              <div className="pe-notice-card">
+                <div className="pe-notice-tag">CAREER UPDATE</div>
+                <p className="pe-notice-text">
+                  You followed up with the headhunter and went through seven rounds of interviews. Unfortunately, you failed at the Case Study round.
+                </p>
+                <p className="pe-notice-text">
+                  Maybe you just don't cut it for PE. Not yet, anyway.
+                </p>
+                <button className="btn btn-primary" onClick={handlePEFailedInterviewDone}>[ BACK TO THE DESK ]</button>
               </div>
             </div>
           )}

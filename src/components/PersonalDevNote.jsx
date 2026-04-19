@@ -1,6 +1,4 @@
 export default function PersonalDevNote({ gameState: gs, onChoice }) {
-  const canPE = gs.stats.competence > 450;
-
   return (
     <div className="se-screen">
       <div className="se-card">
@@ -17,19 +15,11 @@ export default function PersonalDevNote({ gameState: gs, onChoice }) {
             </div>
           </button>
 
-          <button
-            className={`se-choice ${!canPE ? 'pdn-choice--locked' : ''}`}
-            onClick={() => canPE && onChoice('pe')}
-            disabled={!canPE}
-          >
+          <button className="se-choice" onClick={() => onChoice('pe')}>
             <span className="se-choice-letter">B</span>
             <div>
               <div className="se-choice-label">Jump to Private Equity → Darkstone &amp; Partners</div>
-              <div className="se-choice-note">
-                {canPE
-                  ? 'Salary ×1.2, promotion requirements ×1.2'
-                  : `Requires Competence > 450 — yours is ${gs.stats.competence}`}
-              </div>
+              <div className="se-choice-note">Salary ×1.2, promotion requirements ×1.2</div>
             </div>
           </button>
 

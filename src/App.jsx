@@ -88,6 +88,8 @@ const buildInitialGameState = (character, traits) => {
 
     pendingMummysHelp:      false,
     pendingAfterMummysHelp: null,
+    pendingPETransition:    false,
+    pendingAfterPEFailed:   null,
 
     lowSanityQuarters: 0,
 

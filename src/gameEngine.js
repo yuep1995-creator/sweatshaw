@@ -53,6 +53,7 @@ export const applyEffects = (stats, rawEffects, multipliers = {}, currentYear = 
     charismaMultiplierLooks       = 1,
     charismaMultiplierStreetSmart = 1,
     reputationMultiplier          = 1,
+    isPEPath                      = false,
   } = multipliers;
 
   // Intelligence → Competence gains only
@@ -60,10 +61,11 @@ export const applyEffects = (stats, rawEffects, multipliers = {}, currentYear = 
     effects.competence = Math.round(effects.competence * competenceMultiplier);
   }
   // Grit → Sanity losses only (losses become smaller; Rich Legacy amplified via negative value)
-  // Year scaling: +10%/yr every year
+  // Year scaling: +10%/yr every year. PE path: additional 1.1× stress multiplier.
   if (effects.sanity != null && effects.sanity < 0) {
     const yearMultiplier = Math.pow(1.10, currentYear - 1);
-    effects.sanity = Math.round(effects.sanity * yearMultiplier * (1 - sanityLossReduction));
+    const peMultiplier   = isPEPath ? 1.1 : 1;
+    effects.sanity = Math.round(effects.sanity * yearMultiplier * peMultiplier * (1 - sanityLossReduction));
   }
   // Looks + Street Smart → Charisma gains (both multipliers applied multiplicatively)
   if (effects.charisma != null && effects.charisma > 0) {
@@ -91,13 +93,15 @@ export const getAdjustedEffects = (rawEffects, multipliers = {}, housingTier = n
     charismaMultiplierLooks       = 1,
     charismaMultiplierStreetSmart = 1,
     reputationMultiplier          = 1,
+    isPEPath                      = false,
   } = multipliers;
 
   if (effects.competence != null && effects.competence > 0)
     effects.competence = Math.round(effects.competence * competenceMultiplier);
   if (effects.sanity != null && effects.sanity < 0) {
     const yearMultiplier = Math.pow(1.10, currentYear - 1);
-    effects.sanity = Math.round(effects.sanity * yearMultiplier * (1 - sanityLossReduction));
+    const peMultiplier   = isPEPath ? 1.1 : 1;
+    effects.sanity = Math.round(effects.sanity * yearMultiplier * peMultiplier * (1 - sanityLossReduction));
   }
   if (effects.charisma != null && effects.charisma > 0)
     effects.charisma = Math.round(effects.charisma * charismaMultiplierLooks * charismaMultiplierStreetSmart);
@@ -131,6 +135,15 @@ export const processActivity = (activityDef, currentStats, multipliers, currentY
       effects[k] = (effects[k] || 0) + v;
     });
     riskMessage = activityDef.risk.label;
+  }
+
+  // bypassSanityMultiplier: apply sanity as a flat value, skip year/trait/PE scaling
+  if (activityDef.bypassSanityMultiplier && effects.sanity != null) {
+    const rawSanity = effects.sanity;
+    const { sanity: _s, ...effectsWithoutSanity } = effects;
+    const rawStats = applyEffects(currentStats, effectsWithoutSanity, multipliers, currentYear);
+    rawStats.sanity += rawSanity;
+    return { rawStats, effects, riskMessage };
   }
 
   const rawStats = applyEffects(currentStats, effects, multipliers, currentYear);
@@ -300,15 +313,18 @@ export const getQuarterlySalary = (stageId) => {
   return { gross, taxRate, taxWithheld, net: gross - taxWithheld };
 };
 
-// Returns 1.4^n promotion multiplier for Pitch New Clients effects.
+// Returns promotion multiplier for Client Pitch effects.
 export const getStagePromotionMultiplier = (stageId) => {
-  const map = { analyst: 1, associate: 1.4, vp: 1.96, director: 2.744 };
+  const map = { analyst: 1, associate: 1.2, vp: 1.4, director: 1.6 };
   return map[stageId] || 1;
 };
 
 // Bonus = % of base salary based on work activities done in the year.
-// extraResponsibilities: +10% each | crunchDeal: +15% each
-// pitchClients: +10% (Analyst/Associate), +15% (VP), +25% (Director); 20% chance pitch doubles contribution
+// extraResponsibilities/projectManagement: +10% each | crunchDeal: +15% each
+// pitchClients: +5% (Analyst), +10% (Associate/VP), +15% (Director); 20% chance pitch doubles contribution
+// playingPolitics (VP/Director): +8% each
+// clientEntertainment: +10% (VP), +15% (Director)
+// slackLookBusy: -5% each
 // Base 25%; caps: Analyst 125%, Associate 150%, VP 150%, Director 200%.
 export const computeAnnualBonus = (stageId, activityLog, year) => {
   const annual    = ANNUAL_SALARY_BY_STAGE[stageId] || 100_000;
@@ -316,16 +332,30 @@ export const computeAnnualBonus = (stageId, activityLog, year) => {
 
   const capByStage  = { analyst: 1.25, associate: 1.50, vp: 1.50, director: 2.00 };
   const cap         = capByStage[stageId] || 1.25;
-  const pitchRateByStage = { analyst: 0.10, associate: 0.10, vp: 0.15, director: 0.25 };
-  const pitchRate   = pitchRateByStage[stageId] || 0.10;
+  const pitchRateByStage = { analyst: 0.05, associate: 0.10, vp: 0.10, director: 0.15 };
+  const pitchRate        = pitchRateByStage[stageId] || 0.05;
+  const entertainRate    = stageId === 'director' ? 0.15 : 0.10;
+  const isVpPlus         = stageId === 'vp' || stageId === 'director';
 
-  const yearActs    = activityLog.filter(a => a.year === year);
-  const extraCount  = yearActs.filter(a => a.activityId === 'extraResponsibilities' || a.activityId === 'projectManagement').length;
-  const crunchCount = yearActs.filter(a => a.activityId === 'crunchDeal').length;
-  const pitchActs   = yearActs.filter(a => a.activityId === 'pitchClients');
-  const pitchBonus  = pitchActs.reduce((sum, a) => sum + pitchRate * (a.pitchSuccess ? 2 : 1), 0);
+  const yearActs        = activityLog.filter(a => a.year === year);
+  const extraCount      = yearActs.filter(a => a.activityId === 'extraResponsibilities' || a.activityId === 'projectManagement').length;
+  const crunchCount     = yearActs.filter(a => a.activityId === 'crunchDeal').length;
+  const pitchActs       = yearActs.filter(a => a.activityId === 'pitchClients');
+  const pitchBonus      = pitchActs.reduce((sum, a) => sum + pitchRate * (a.pitchSuccess ? 2 : 1), 0);
+  const politicsCount   = isVpPlus ? yearActs.filter(a => a.activityId === 'playingPolitics').length : 0;
+  const entertainCount  = isVpPlus ? yearActs.filter(a => a.activityId === 'clientEntertainment').length : 0;
+  const slackCount      = yearActs.filter(a => a.activityId === 'slackLookBusy').length;
 
-  const bonusPct    = Math.min(0.25 + extraCount * 0.10 + crunchCount * 0.15 + pitchBonus, cap);
+  const bonusPct    = Math.min(
+    0.25
+    + extraCount     * 0.10
+    + crunchCount    * 0.15
+    + pitchBonus
+    + politicsCount  * 0.08
+    + entertainCount * entertainRate
+    - slackCount     * 0.05,
+    cap,
+  );
   const gross       = Math.round(annual * bonusPct);
   const taxWithheld = Math.round(gross * taxRate);
   return { gross, taxWithheld, net: gross - taxWithheld, taxRate, bonusPct };

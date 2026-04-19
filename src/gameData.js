@@ -185,7 +185,7 @@ export const CAREER_STAGES = [
     title: 'VP',
     gameYears: [7, 8, 9],
     calendarYears: [2032, 2033, 2034],
-    promoReqs: { competence: 700, charisma: 600, reputation: 600 },
+    promoReqs: { competence: 650, charisma: 600, reputation: 600 },
     allowAccelerated: false,
   },
   {
@@ -193,7 +193,7 @@ export const CAREER_STAGES = [
     title: 'Director',
     gameYears: [10, 11, 12],
     calendarYears: [2035, 2036, 2037],
-    promoReqs: { competence: 800, charisma: 850, reputation: 850 },
+    promoReqs: { competence: 750, charisma: 850, reputation: 850 },
     allowAccelerated: false,
   },
 ];
@@ -216,10 +216,11 @@ export const ACTIVITIES = [
     id: 'pitchClients',
     icon: '📊',
     name: 'Client Pitch',
+    peName: 'Target Pitch',
     description: 'Showtime.',
     category: 'Work',
     cost: 0,
-    effects: { reputation: 4, charisma: 4, sanity: -5 },
+    effects: { reputation: 3, charisma: 3, sanity: -6 },
     promotionScaled: true,
   },
   {
@@ -229,7 +230,7 @@ export const ACTIVITIES = [
     description: '"Sure," you said. "Happy to help," you said.',
     category: 'Work',
     cost: 0,
-    effects: { reputation: 7, competence: 5, sanity: -12 },
+    effects: { reputation: 7, competence: 4, sanity: -12 },
     stageOnly: ['analyst', 'associate'],
   },
   {
@@ -239,7 +240,7 @@ export const ACTIVITIES = [
     description: 'Delegating work instead of doing them.',
     category: 'Work',
     cost: 0,
-    effects: { reputation: 8 },
+    effects: { reputation: 8, sanity: -8 },
     stageOnly: ['vp', 'director'],
   },
   {
@@ -270,7 +271,8 @@ export const ACTIVITIES = [
     description: 'The higher you climb, the more this matters.',
     category: 'Social',
     cost: 200,
-    effects: { reputation: 8, charisma: 4, sanity: -15 },
+    effects: { reputation: 6, charisma: 4, sanity: -12 },
+    risk: { chance: 0.20, effect: { sanity: -5 }, label: 'Office politics backfired.' },
     charismaScaled: true,
     socialActivity: true,
     stageOnly: ['vp', 'director'],
@@ -294,7 +296,8 @@ export const ACTIVITIES = [
     description: 'Expensed dinners, box seats, and conversations you will barely remember.',
     category: 'Social',
     cost: 500,
-    effects: { charisma: 8, reputation: 4, sanity: -15 },
+    effects: { charisma: 8, reputation: 4, sanity: -12 },
+    risk: { chance: 0.20, effect: { sanity: -5 }, label: 'A client dinner that went on too long.' },
     charismaScaled: true,
     socialActivity: true,
     stageOnly: ['vp', 'director'],
@@ -318,7 +321,7 @@ export const ACTIVITIES = [
     description: 'You know someone who knows someone. The champagne is cold. The networking is warmer.',
     category: 'Social',
     cost: 50_000,
-    effects: { reputation: 40, charisma: 20 },
+    effects: { reputation: 25, charisma: 25 },
   },
   {
     id: 'therapy',
@@ -348,6 +351,7 @@ export const ACTIVITIES = [
     cost: 2_500,
     effects: { sanity: -25 },
     sanityByStage: { analyst: -25, associate: -30, vp: -35, director: -40 },
+    bypassSanityMultiplier: true,
     q3Only: true,
     oncePerQuarter: true,
     gritGain: 5,
@@ -1064,10 +1068,18 @@ export const ENDINGS = {
       const pron2   = gs?.characterId === 'max' ? 'he'  : 'she';
       const pron3   = gs?.characterId === 'max' ? 'his' : 'her';
       const crown   = gs?.characterId === 'paige' ? 'Queen' : 'King';
-      return `${name} made it. Not just to the title — though the title was there, official and permanent — but to the place ${pron2} had pictured, distantly, on the first day of the internship. Back when the desk was borrowed and the email signature still said "Summer Analyst."\n\nThe corner office has three windows. The view is unobstructed. The coffee arrives before the calendar starts.\n\nThere are mornings — not many, but occasionally — when ${pron3} eye catches something small: an old screenshot, a forwarded thread, a CC buried in the inbox from a decade ago. A senior associate asking for a slide to be redone. A 2am reply. A "pls fix" with no subject line and no explanation. The small indignities of the junior years, preserved without sentimentality, like rings in a cross-section of wood.\n\nThe person who sent that email now reports to ${name}. So does the person above them.\n\n${pronoun} wouldn't say ${pron2} enjoyed every single moment. That would be dishonest. There were quarters that ground people down, deals that fell apart, years that passed faster than they should have. But the honest answer, if pressed, is that ${pron2} would do it again. All of it. Without hesitation.\n\nPrestige, wealth, power — these things came the way they always come at this level: incrementally, then suddenly, then permanently. ${name} understood, early enough to make real use of the understanding, that this game rewards the people who never stop playing.\n\n${pronoun} didn't.\n\n${crown} of Wall Street isn't a title you're given. It's one the market hands you quietly, years after the fact, when everyone else has stopped looking for it.\n\n${name} already knew.`;
+
+      if (gs?.isPEPath) {
+        return `The fund closed at 4.1×.\n\nNot the best multiple Darkstone had ever posted — but the largest absolute return in the firm's history, and everyone in that room knew exactly whose conviction had driven it. ${name} had sourced the deal, championed it through an internal investment committee that was sceptical at the time, and then spent four years building something the market had spectacularly underestimated.\n\nThe carry distribution was processed quietly, as these things always are. The number, when it appeared, required no commentary.\n\n${pronoun} had built something rarer than a successful fund: a reputation that preceded ${pron3} into every room ${pron2} entered. LPs called before the deck was finalised. CEOs took the meeting before the teaser arrived. The carry was the confirmation of something the market had already priced in.\n\nThere had been a time — early, when ${pron2} was still learning what private equity actually was beneath the surface of the pitch — when ${pron2} had wondered whether the game was worth the cost. The weekends. The compressed timelines. The relationships that narrowed to the dimensions of a deal room.\n\nThe honest answer, in the end, was yes. Not because of the carry, and not because of the title. But because of the quality of the decisions — and the fact that, at every fork in the road, ${name} had made the right one.\n\nDarkstone & Partners. Senior Partner. ${crown} of Wall Street.\n\nThe next fund was already oversubscribed.`;
+      }
+
+      return `The announcement came on a Tuesday morning. Three sentences in an all-staff email. By noon, ${name}'s phone had received one hundred and twelve messages — from clients, from peers, from junior analysts ${pron2} had mentored across a decade who were now sending the kind of congratulations that people send when they mean it.\n\nManaging Director. Sweatshaw & Co. One of the most sought-after seats on the Street.\n\n${pronoun} had earned more fees for the firm in the past three years than the entire division had generated in the five years before ${pron2} made VP. The league table position had moved. The client roster had moved. The culture of the team — the standard it held itself to, the calibre of work it expected — had moved. These things did not happen by accident.\n\nThe corner office had been empty for two months. Everyone on the floor had known, before the email arrived, whose name would be on the door.\n\nThere are moments, early in a career, when the ambition feels abstract — something you carry around without quite knowing its shape. ${name} had known ${pron3} shape early. Not with arrogance, but with clarity. The kind of clarity that is, in the end, the only competitive advantage that compounds.\n\n${pronoun} had run towards every difficult deal, every difficult client, every difficult room. ${pronoun} had stayed when it would have been easier to leave. ${pronoun} had built something — not just a career, but a standard.\n\n${crown} of Wall Street. The title the market gives you when the market has already decided.\n\n${name} had known it was coming. ${pronoun} had known for years.`;
     },
     epilogue: (name, _sanity, gs) => {
       const pron2 = gs?.characterId === 'max' ? 'he' : 'she';
+      if (gs?.isPEPath) {
+        return `The next fund was a $6 billion raise. The anchor LP committed within forty-eight hours of the first call. ${name} took that as confirmation of something ${pron2} had always suspected: in this business, track record is everything. ${pron2} had one that spoke for itself.`;
+      }
       return `The summer interns this year had excellent CVs and hungry eyes. ${name} remembered the feeling exactly. ${pron2.charAt(0).toUpperCase() + pron2.slice(1)} gave them twenty minutes at the front of the room. They will be thinking about it for years.`;
     },
   },
