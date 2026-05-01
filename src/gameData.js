@@ -1060,6 +1060,21 @@ export const ENDINGS = {
       return `${name} did not forget to update ${pronoun} OOO message before dashing out: "Dear sender, I am currently ooo, indefinitely."`;
     },
   },
+  linkedInGhost: {
+    title: 'The LinkedIn Ghost.',
+    colour: '#8b90b0',
+    image: '/unlivedresume.png',
+    text: (_name, _stats, gs) => {
+      const PARTNER_NAMES = { julien: 'Julien', victor: 'Victor', logan: 'Logan' };
+      const partner = PARTNER_NAMES[gs?.relationshipPartnerId] ?? 'her partner';
+      return `The decision didn't arrive as a decision. It arrived as a Tuesday morning when Paige simply couldn't do it anymore — couldn't open the laptop, couldn't draft the email, couldn't locate the version of herself that had once found all of this interesting.\n\n${partner} was the one who said it plainly: take some time. So she did.\n\nThe leave of absence became a resignation. The short career break she planned to use to re-think about her longer term career was extended by a surprise proposal. She said yes without hesitating, which surprised her a little.\n\nThe short career break she planned to figure out her long-term career was extended by months of wedding planning. Which was then extended indefinitely by her pregnancy.\n\nShe told herself she could go back, whenever she was ready. The door was open. She had the credentials, the contacts, the institutional memory. Finance would still be there.\n\nAnd she meant it — mostly. There were mornings, early ones, when the city was still grey and the children were still asleep and ${partner} had already left for the office, when she stood at the window with a cooling cup of coffee and felt something she didn't have a precise word for. Not regret, exactly. More like the quiet awareness of a road not taken, visible from a distance, running parallel to the one she was on.\n\nThe feeling passed quickly. It always did.\n\nShe had everything she had been told to want: a successful husband, beautiful children, an apartment with a view of the island she had arrived in at twenty-two with a carry-on bag and a great deal of ambition.\n\nIt was a good life.`;
+    },
+    epilogue: (_name, _stats, gs) => {
+      const PARTNER_NAMES = { julien: 'Julien', victor: 'Victor', logan: 'Logan' };
+      const partner = PARTNER_NAMES[gs?.relationshipPartnerId] ?? 'her partner';
+      return `Paige's LinkedIn was never updated since.`;
+    },
+  },
   kingOfWallStreet: {
     title: (gs) => gs?.characterId === 'paige' ? 'Queen of Wall Street.' : 'King of Wall Street.',
     colour: '#fbbf24',

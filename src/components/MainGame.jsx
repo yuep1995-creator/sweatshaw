@@ -26,7 +26,7 @@ import {
   getQuarterlyRent, getQuarterlyLifestyle, getHousingQuarterlySanityBonus, HOUSING, ANNUAL_SALARY_BY_STAGE,
   getStagePromotionMultiplier,
 } from '../gameEngine';
-import { ACTIVITIES, DATE_OPTIONS, CAREER_STAGES } from '../gameData';
+import { ACTIVITIES, DATE_OPTIONS, CAREER_STAGES, EXTENSION_ENDINGS } from '../gameData';
 import { pickQuarterlyItems, PARTNER_GENDER } from '../gameItems';
 import LoganScene from './LoganScene';
 import PersonalDevNote from './PersonalDevNote';
@@ -81,6 +81,22 @@ const ACTIVE_RELATIONSHIP_STATUSES = ['entangled', 'relationship', 'engaged', 'm
 
 function hasActiveRelationship(gs) {
   return !!(gs.relationshipPartnerId && ACTIVE_RELATIONSHIP_STATUSES.includes(gs.relationshipStatus));
+}
+
+// Returns 'linkedInGhost' if all conditions are met, otherwise returns the supplied ending id
+const LINKEDIN_GHOST_ENDINGS = new Set(['burntOut', 'upOrOut', 'permanentVP', 'headOfInternalStrategy']);
+function resolveEnding(endingId, gs) {
+  if (!LINKEDIN_GHOST_ENDINGS.has(endingId)) return endingId;
+  if (gs.characterId !== 'paige') return endingId;
+  if (!['julien', 'victor', 'logan'].includes(gs.relationshipPartnerId)) return endingId;
+  if (!ACTIVE_RELATIONSHIP_STATUSES.includes(gs.relationshipStatus)) return endingId;
+  if ((gs.currentYear - (gs.relationshipStartYear ?? gs.currentYear)) <= 3) return endingId;
+  if ((gs.baseTraits?.grit  ?? 99) >= 25) return endingId;
+  if ((gs.baseTraits?.looks ??  0) <= 30) return endingId;
+  // Napa Retirement takes priority over LinkedIn Ghost
+  const napa = EXTENSION_ENDINGS.napaRetirement;
+  if (napa.triggeredBy.includes(endingId) && napa.condition(gs)) return endingId;
+  return 'linkedInGhost';
 }
 
 // Resolve any event whose text/choice labels/effects are functions, injecting game state context
@@ -451,7 +467,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     if (rawStats.sanity < 0 && !gs.isRichLegacy) {
       const displayStats = clampStats({ ...rawStats, sanity: 0 });
       update({ stats: displayStats });
-      onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+      onEnding(resolveEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut', gs));
       return;
     }
 
@@ -526,6 +542,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
           relationshipIntimacy:  startIntimacy,
           relationshipStatus:    startIntimacy > 50 ? 'relationship' : 'entangled',
           relationshipEverReachedRelationship: startIntimacy > 50,
+          relationshipStartYear: gs.currentYear,
         };
       } else {
         // Subsequent date — +15 intimacy
@@ -698,7 +715,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     // Sanity floor check from quarterly event effects
     if (finalStats.sanity < 0 && !gs.isRichLegacy) {
       update({ stats: { ...finalStats, sanity: 0 } });
-      onEnding(choice.isPromotionTrapAccept || gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+      onEnding(resolveEnding(choice.isPromotionTrapAccept || gs.walkOfShamePending ? 'walkOfShame' : 'burntOut', gs));
       return;
     }
 
@@ -841,13 +858,13 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
     if (newStats.sanity < 0 && !gs.isRichLegacy) {
       update({ stats: clampStats({ ...newStats, sanity: 0 }) });
-      onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+      onEnding(resolveEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut', gs));
       return;
     }
     newStats = clampStats(newStats);
 
-    if (choice.isLoganY2 || choice.isLoganY3) {
-      // Y2/Y3 choices — just apply stats, keep Logan active for future years
+    if (choice.isLoganY1 || choice.isLoganY2 || choice.isLoganY3) {
+      // Y1/Y2/Y3 choices — just apply stats, keep Logan active for future years
       update({ stats: newStats, subScreen: 'quarterlySummary' });
       return;
     }
@@ -859,7 +876,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
           : ['relationship', 'engaged'].includes(gs.relationshipStatus) ? 'breakup' : 'ghosted';
         update({ stats: newStats, loganDismissed: true, breakupEventType: beType, pendingLoganRelationship: meetsLoganCriteria, pendingAfterBreakup: 'quarterlySummary', subScreen: 'breakupScene' });
       } else if (meetsLoganCriteria) {
-        update({ stats: newStats, relationshipPartnerId: 'logan', relationshipStatus: 'entangled', relationshipIntimacy: INTIMACY_START.logan, firstEncounterId: 'logan', dateUnlocked: true, subScreen: 'quarterlySummary' });
+        update({ stats: newStats, relationshipPartnerId: 'logan', relationshipStatus: 'entangled', relationshipIntimacy: INTIMACY_START.logan, firstEncounterId: 'logan', dateUnlocked: true, relationshipStartYear: gs.currentYear, subScreen: 'quarterlySummary' });
       } else {
         // Ghost scenario — narrative already shown in LoganScene, just apply stats
         update({ stats: newStats, loganDismissed: true, subScreen: 'quarterlySummary' });
@@ -905,7 +922,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
       const rawStats = applyEffects(gs.stats, { competence: 40, sanity: -30 }, gs.traitMultipliers, gs.currentYear);
       if (rawStats.sanity < 0 && !gs.isRichLegacy) {
         update({ stats: clampStats({ ...rawStats, sanity: 0 }) });
-        onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+        onEnding(resolveEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut', gs));
         return;
       }
       const finalStats = clampStats(rawStats);
@@ -1191,7 +1208,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
     const pendingSub = gs.pendingAfterBreakup || 'monthPicker';
     const loganStart = gs.pendingLoganRelationship
-      ? { relationshipPartnerId: 'logan', relationshipStatus: 'entangled', relationshipIntimacy: INTIMACY_START.logan, firstEncounterId: 'logan', dateUnlocked: true }
+      ? { relationshipPartnerId: 'logan', relationshipStatus: 'entangled', relationshipIntimacy: INTIMACY_START.logan, firstEncounterId: 'logan', dateUnlocked: true, relationshipStartYear: gs.currentYear }
       : {};
     update({
       stats: { ...gs.stats, sanity: newSanity },
@@ -1303,16 +1320,16 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         if (gs.isRichLegacy) {
           onEnding('backToFamilyBusiness');
         } else if (gs.currentStageId === 'analyst') {
-          onEnding('upOrOut');
+          onEnding(resolveEnding('upOrOut', gs));
         } else if (gs.currentStageId === 'associate') {
           const isFO = (gs.baseTraits?.familyBackground ?? 0) > 49;
-          onEnding(isFO ? 'friendsFO' : 'upOrOut');
+          onEnding(resolveEnding(isFO ? 'friendsFO' : 'upOrOut', gs));
         } else if (gs.currentStageId === 'vp') {
           const isFO = (gs.baseTraits?.familyBackground ?? 0) > 49;
-          onEnding(isFO ? 'friendsFO' : 'permanentVP');
+          onEnding(resolveEnding(isFO ? 'friendsFO' : 'permanentVP', gs));
         } else {
           const isProfCoach = gs.stats.reputation > 700 && (gs.baseTraits?.streetSmart ?? 0) > 30;
-          onEnding(isProfCoach ? 'professionalCoach' : 'headOfInternalStrategy');
+          onEnding(resolveEnding(isProfCoach ? 'professionalCoach' : 'headOfInternalStrategy', gs));
         }
         return;
       }
@@ -1373,7 +1390,15 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     const newSanity = Math.min(200, gs.stats.sanity + sanityGain);
     update({
       stats: { ...gs.stats, wealth: newWealth, sanity: newSanity },
-      subScreen: gs.pendingPETransition ? 'peIntro' : 'housingSelect',
+      subScreen: gs.pendingPETransition ? 'peIntro'
+               : gs.isRichLegacy        ? 'monthPicker'
+               : 'housingSelect',
+      ...(gs.isRichLegacy && !gs.pendingPETransition ? {
+        quarterStartWealth: gs.stats.wealth - cost + winnings,
+        quarterlyRentPaid:  0,
+        quarterlyExpensesLog: [],
+        quarterlyStatDelta:   {},
+      } : {}),
     });
   };
 
@@ -1428,7 +1453,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
     );
     if (preClamp.sanity < 0 && !gs.isRichLegacy) {
       update({ stats: clampStats({ ...preClamp, sanity: 0 }) });
-      onEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut');
+      onEnding(resolveEnding(gs.walkOfShamePending ? 'walkOfShame' : 'burntOut', gs));
       return;
     }
     const newStats = clampStats(preClamp);
@@ -1649,7 +1674,8 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
             <BonusEvent gameState={gs} bonusEventId={gs.pendingBonusEventId} onDone={handleBonusEventDone} />
           )}
           {gs.subScreen === 'mummysHelpNotice' && (
-            <div className="mh-overlay">
+            <div className="mh-screen" style={{ backgroundImage: "url('/backtofamilybusiness.png')" }}>
+              <div className="mh-overlay" />
               <div className="mh-card">
                 <p className="mh-text">
                   Your funds were running a bit low, so you gave your mum a call. She wired $1,000,000 to your account and reminded you to come home for dinner next weekend.

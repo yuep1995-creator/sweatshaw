@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 
 const HOUSING_KEY = {
   studio:    'studio',
-  oneBed:    'onebed',
-  twoBed:    'twobed',
-  mansion:   'mansion',
-  penthouse: 'penthouse',
+  oneBed:    '1bed',
+  twoBed:    '2bed',
+  mansion:   'ph',
+  penthouse: 'ph',
 };
 
 const TEXT_MAX = [

@@ -15,14 +15,16 @@ const LOGAN_DATA = {
     ],
     midChoices: [
       {
-        id:      'lovingIt',
-        label:   '"Loving it." It\'s 5pm so just halfway through your day. You look forward to spending a long night over some comps.',
-        effects: { sanity: -5, competence: 5 },
+        id:        'lovingIt',
+        isLoganY1: true,
+        label:     '"Loving it." It\'s 5pm so just halfway through your day. You look forward to spending a long night over some comps.',
+        effects:   { sanity: -5, competence: 5 },
       },
       {
-        id:      'cantComplain',
-        label:   '"Can\'t complain."',
-        effects: { charisma: 5 },
+        id:        'cantComplain',
+        isLoganY1: true,
+        label:     '"Can\'t complain."',
+        effects:   { charisma: 5 },
       },
     ],
   },

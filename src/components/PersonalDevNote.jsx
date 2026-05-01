@@ -1,6 +1,7 @@
 export default function PersonalDevNote({ gameState: gs, onChoice }) {
   return (
-    <div className="se-screen">
+    <div className="se-screen" style={{ backgroundImage: "url('/crossroad.png')" }}>
+      <div className="se-bg-overlay" />
       <div className="se-card">
         <div className="se-tag">PERSONAL DEVELOPMENT NOTE</div>
         <h2 className="se-title">The Crossroads</h2>

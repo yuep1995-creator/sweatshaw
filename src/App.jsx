@@ -303,7 +303,7 @@ export default function App() {
         legacyAudio.play().catch(() => {});
       }, 2000);
     }
-    if (['upOrOut', 'permanentVP', 'headOfInternalStrategy', 'startupBust', 'burntOut', 'mentalBreakdown', 'bankruptcy', 'fire', 'regulator'].includes(endingId)) {
+    if (['upOrOut', 'permanentVP', 'headOfInternalStrategy', 'startupBust', 'burntOut', 'mentalBreakdown', 'bankruptcy', 'fire', 'regulator', 'linkedInGhost'].includes(endingId)) {
       if (audioRef.current) audioRef.current.pause();
       const badAudio = new Audio('/badending.mp3');
       endingAudioRef.current = badAudio;
