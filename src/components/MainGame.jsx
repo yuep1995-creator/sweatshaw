@@ -28,7 +28,8 @@ import {
 } from '../gameEngine';
 import { ACTIVITIES, DATE_OPTIONS, CAREER_STAGES, EXTENSION_ENDINGS } from '../gameData';
 import { pickQuarterlyItems, PARTNER_GENDER } from '../gameItems';
-import LoganScene from './LoganScene';
+import LoganScene       from './LoganScene';
+import TutorialOverlay  from './TutorialOverlay';
 import PersonalDevNote from './PersonalDevNote';
 import BonusEvent from './BonusEvent';
 
@@ -1524,7 +1525,9 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
 
           <div className="gs-stats-list">
             {Object.keys(gs.stats).filter(k => k !== 'wealth').map(k => (
-              <StatBar key={k} statKey={k} value={gs.stats[k]} />
+              k === 'sanity'
+                ? <div key={k} id="tut-sanity"><StatBar statKey={k} value={gs.stats[k]} /></div>
+                : <StatBar key={k} statKey={k} value={gs.stats[k]} />
             ))}
             <WealthDisplay
               wealth={gs.stats.wealth}
@@ -1532,7 +1535,7 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
               mansionOwned={gs.mansionOwned}
               currentQuarter={gs.currentQuarter}
             />
-            <SidebarPromoPanel gs={gs} />
+            <div id="tut-promo"><SidebarPromoPanel gs={gs} /></div>
           </div>
 
           {gs.allBadgesEarned.length > 0 && (
@@ -1585,6 +1588,9 @@ export default function MainGame({ gameState: gs, setGameState, onEnding, onSave
         <main className="gs-main">
           {gs.subScreen === 'monthPicker' && (
             <MonthlyPicker gameState={gs} onActivityChosen={handleActivityChosen} onItemPurchase={handleItemPurchase} />
+          )}
+          {gs.subScreen === 'monthPicker' && !gs.tutorialSeen && (
+            <TutorialOverlay onDone={() => update({ tutorialSeen: true })} />
           )}
           {gs.subScreen === 'dateSelect' && (
             <DateSelection gameState={gs} onDateChosen={handleDateChosen} />

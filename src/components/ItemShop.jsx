@@ -93,12 +93,15 @@ export default function ItemShop({ gameState: gs, quarterlyItems, onItemPurchase
     setPendingItem(null);
   };
 
+  // Only show items that have at least one valid action for this player/partner combo
+  const visibleItems = quarterlyItems.filter(item => canUse(item, gs) || canGift(item, gs));
+
   return (
     <>
-      <div className={`mp-category item-shop-row${alreadyPurchased ? ' item-row-purchased' : ''}`}>
+      <div id="tut-items" className={`mp-category item-shop-row${alreadyPurchased ? ' item-row-purchased' : ''}`}>
         <div className="mp-cat-label">Items</div>
         <div className="mp-activity-grid">
-          {quarterlyItems.map(item => {
+          {visibleItems.map(item => {
             const affordable  = item.cost <= wealth;
             const unavailable = !affordable || alreadyPurchased;
             const showGift    = canGift(item, gs);

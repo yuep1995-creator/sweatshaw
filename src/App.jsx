@@ -147,7 +147,9 @@ const buildInitialGameState = (character, traits) => {
     titlesEarned:          [],
     allBadgesEarned:       [],
 
-    quarterlyItems:           pickQuarterlyItems('analyst'),
+    tutorialSeen:             false,
+
+    quarterlyItems:           pickQuarterlyItems('analyst', [], { characterId: character.id }),
     itemPurchasedThisQuarter: false,
 
     eventIndex: 0,

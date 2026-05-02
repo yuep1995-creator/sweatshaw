@@ -70,6 +70,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen, onItemP
       )}
 
       <div className="mp-grid-wrap">
+        <div id="tut-actions">
         {grouped.map(({ cat, activities }) => (
           <div key={cat} className="mp-category">
             <div className="mp-cat-label">{cat}</div>
@@ -170,6 +171,7 @@ export default function MonthlyPicker({ gameState: gs, onActivityChosen, onItemP
             </div>
           </div>
         ))}
+        </div>
 
         <ItemShop
           gameState={gs}

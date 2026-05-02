@@ -5301,6 +5301,147 @@ strong, b {
   margin: 0;
 }
 
+/* ── TUTORIAL OVERLAY ───────────────────────────────────────────────────── */
+.tut-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  pointer-events: all;
+}
+
+.tut-spotlight {
+  position: fixed;
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  z-index: 601;
+}
+
+
+.tut-card {
+  position: fixed;
+  width: 300px;
+  background: #0d1117;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 20px 22px 16px;
+  z-index: 602;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  transition: top 0.3s ease, left 0.3s ease;
+}
+
+.tut-step-ind {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.tut-card-title {
+  font-family: 'Times New Roman', Times, serif;
+  font-weight: bold;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.tut-card-desc {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 0.875rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  font-weight: normal;
+  margin: 0;
+}
+
+.tut-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.tut-skip-btn {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  font-weight: normal;
+}
+
+.tut-skip-btn:hover {
+  color: var(--text-dim);
+}
+
+.tut-next-btn {
+  font-family: 'Times New Roman', Times, serif;
+  font-weight: bold;
+  font-size: 0.85rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 20px;
+  cursor: pointer;
+}
+
+.tut-next-btn:hover {
+  background: var(--accent-hover);
+}
+
+.tut-closing-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 602;
+  width: min(420px, 88vw);
+  background: #0d1117;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 40px 36px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.7);
+  text-align: center;
+}
+
+.tut-closing-text {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 1.1rem;
+  color: var(--text);
+  line-height: 1.75;
+  font-weight: normal;
+  margin: 0;
+}
+
+.tut-grind-btn {
+  font-family: 'Times New Roman', Times, serif;
+  font-weight: bold;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 32px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.tut-grind-btn:hover {
+  background: var(--accent-hover);
+}
+
 /* ─────────────────────────────────────────────
    LANDSCAPE MOBILE — conversation scenes
    Targets phones in landscape (height ≤ 500px).
