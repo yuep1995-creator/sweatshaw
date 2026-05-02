@@ -246,7 +246,7 @@ export default function App() {
     startMusic();
     setCharacter(saved.character);
     setTraits(saved.traits);
-    setGameState(saved.gameState);
+    setGameState({ ...saved.gameState, tutorialSeen: true });
     setCurrentSlot(slotNum);
     setScreen(saved.screen || SCREENS.GAME);
   };
